@@ -4,7 +4,8 @@ version = "0.1.0"
 description = "Local-first LaTeX environment for cryptography papers"
 authors = ["CrypTex contributors"]
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.88"
+publish = false
 
 [lib]
 name = "cryptex_lib"
@@ -14,7 +15,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-cryptex-core = { path = "crates/cryptex-core" }
+cryptex-core = { path = "crates/cryptex-core", version = "=0.1.0" }
 serde = { version = "1", features = ["derive"] }
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
