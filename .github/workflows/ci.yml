@@ -32,7 +32,17 @@ jobs:
       - run: pnpm check
       - run: pnpm test
       - run: pnpm rust:test
-      - run: pnpm desktop:lint
+      - name: Run desktop Clippy
+        run: pnpm desktop:lint 2>&1 | tee desktop-clippy.log
+      - name: Publish desktop Clippy diagnostics
+        if: failure()
+        run: |
+          tail -80 desktop-clippy.log | while IFS= read -r line; do
+            message=${line//'%'/'%25'}
+            message=${message//$'\r'/'%0D'}
+            message=${message//$'\n'/'%0A'}
+            echo "::error::$message"
+          done
       - run: pnpm desktop:test
       - run: pnpm build
 
