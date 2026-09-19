@@ -43,7 +43,17 @@ jobs:
             message=${message//$'\n'/'%0A'}
             echo "::error::$message"
           done
-      - run: pnpm desktop:test
+      - name: Run desktop tests
+        run: pnpm desktop:test 2>&1 | tee desktop-test.log
+      - name: Publish desktop test diagnostics
+        if: failure()
+        run: |
+          tail -80 desktop-test.log | while IFS= read -r line; do
+            message=${line//'%'/'%25'}
+            message=${message//$'\r'/'%0D'}
+            message=${message//$'\n'/'%0A'}
+            echo "::error::$message"
+          done
       - run: pnpm build
 
   dependency-audit:
