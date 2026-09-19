@@ -8,7 +8,11 @@ it("exposes a mockable typed backend contract", async () => {
     application: "CrypTex",
     version: "test",
   };
-  const client: BackendClient = { health: () => Promise.resolve(expected) };
+  const client: BackendClient = {
+    health: () => Promise.resolve(expected),
+    openProject: () => Promise.reject(new Error("not used")),
+    listDirectory: () => Promise.reject(new Error("not used")),
+  };
 
   await expect(client.health()).resolves.toEqual(expected);
 });

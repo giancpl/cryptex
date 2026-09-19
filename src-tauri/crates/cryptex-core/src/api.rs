@@ -36,6 +36,49 @@ pub struct HealthResponse {
     pub version: String,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
+pub struct ProjectSummary {
+    pub api_version: u16,
+    pub project_id: String,
+    pub name: String,
+    pub canonical_root: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
+pub struct FileTreePage {
+    pub api_version: u16,
+    pub directory: String,
+    pub entries: Vec<FileTreeEntry>,
+    pub truncated: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
+pub struct FileTreeEntry {
+    pub name: String,
+    pub relative_path: String,
+    pub kind: FileTreeEntryKind,
+    pub is_symlink: bool,
+    pub accessible: bool,
+    pub hidden: bool,
+    pub generated: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
+pub enum FileTreeEntryKind {
+    Directory,
+    File,
+    Symlink,
+    Other,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

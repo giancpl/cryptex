@@ -1,5 +1,15 @@
 # Ordered tasks
 
+## Current status
+
+- A1-A5: implemented; desktop compilation is verified by CI because the local
+  Flatpak SDK does not provide WebKitGTK development headers.
+- B1: implemented with canonical project identity, validated relative paths,
+  root-contained symlink policy, typed commands, and native folder selection.
+- B2: implemented with bounded lazy directory loading, stable ordering, explicit
+  hidden/build-file filters, and inaccessible-entry reporting.
+- Next: B3 fingerprinted reads and atomic writes.
+
 The authoritative sequence is:
 
 1. A1 specifications and ADRs.

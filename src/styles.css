@@ -62,6 +62,68 @@ input {
   margin: 0 0 24px;
   text-transform: uppercase;
 }
+.pane-heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+.pane-heading h1 {
+  margin-bottom: 0;
+}
+.pane-heading button {
+  background: #283640;
+  border: 1px solid #40515d;
+  border-radius: 5px;
+  color: #e8edf2;
+  cursor: pointer;
+  padding: 6px 9px;
+}
+.pane h2 {
+  font-size: 0.95rem;
+  margin: 20px 0 10px;
+}
+.tree-options {
+  color: #82909f;
+  display: flex;
+  font-size: 0.75rem;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.tree-options label {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+}
+.file-tree {
+  list-style: none;
+  margin: 0;
+  padding-left: 14px;
+}
+.project-pane > .file-tree {
+  padding-left: 0;
+}
+.tree-entry {
+  background: transparent;
+  border: 0;
+  color: #c8d0d8;
+  cursor: pointer;
+  display: flex;
+  gap: 5px;
+  padding: 3px 0;
+  text-align: left;
+  width: 100%;
+}
+.tree-entry:disabled {
+  cursor: default;
+}
+.tree-entry.inaccessible {
+  color: #9a6870;
+}
+.tree-note {
+  color: #d2a75a;
+  font-size: 0.75rem;
+  padding: 6px 0;
+}
 .pane p {
   color: #82909f;
   font-size: 0.88rem;

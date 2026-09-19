@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Minimal capability for the main CrypTex window",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "dialog:allow-open"]
 }

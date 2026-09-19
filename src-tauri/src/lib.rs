@@ -1,9 +1,18 @@
 mod api;
 
+use cryptex_core::project::ProjectService;
+use std::sync::Mutex;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![api::health])
+        .plugin(tauri_plugin_dialog::init())
+        .manage(Mutex::new(ProjectService::default()))
+        .invoke_handler(tauri::generate_handler![
+            api::health,
+            api::open_project,
+            api::list_directory
+        ])
         .run(tauri::generate_context!())
         .expect("failed to run CrypTex");
 }
