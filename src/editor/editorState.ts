@@ -7,6 +7,7 @@ import { EditorView, keymap } from "@codemirror/view";
 export function createLatexEditorState(
   text: string,
   onUpdate: (state: EditorState, changed: boolean) => void,
+  onSave: () => void,
 ): EditorState {
   return EditorState.create({
     doc: text,
@@ -14,7 +15,18 @@ export function createLatexEditorState(
       history(),
       bracketMatching(),
       StreamLanguage.define(stex),
-      keymap.of([...defaultKeymap, ...historyKeymap]),
+      keymap.of([
+        {
+          key: "Mod-s",
+          preventDefault: true,
+          run: () => {
+            onSave();
+            return true;
+          },
+        },
+        ...defaultKeymap,
+        ...historyKeymap,
+      ]),
       EditorView.lineWrapping,
       EditorView.updateListener.of((update) =>
         onUpdate(update.state, update.docChanged),

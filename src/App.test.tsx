@@ -44,12 +44,18 @@ describe("App", () => {
       fingerprint: "f".repeat(64),
       sizeBytes: 23,
     });
+    const writeTextFile = vi.fn().mockResolvedValue({
+      apiVersion: 1,
+      relativePath: "main.tex",
+      fingerprint: "e".repeat(64),
+      sizeBytes: 7,
+    });
     const client: BackendClient = {
       health: vi.fn(),
       openProject,
       listDirectory,
       readTextFile,
-      writeTextFile: vi.fn(),
+      writeTextFile,
     };
     render(
       <App client={client} pickDirectory={() => Promise.resolve("/paper")} />,
@@ -67,6 +73,26 @@ describe("App", () => {
     expect(screen.getByRole("tab", { name: "main.tex" })).toHaveAttribute(
       "aria-selected",
       "true",
+    );
+    const content = await waitFor(() => {
+      const element = document.querySelector<HTMLElement>(".cm-content");
+      expect(element).not.toBeNull();
+      return element;
+    });
+    expect(content).not.toBeNull();
+    if (!content) return;
+    content.textContent = "changed";
+    fireEvent.input(content, { inputType: "insertText", data: "changed" });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("tab", { name: /main\.tex •/ }),
+      ).toBeInTheDocument(),
+    );
+    await waitFor(() => expect(writeTextFile).toHaveBeenCalled(), {
+      timeout: 1_500,
+    });
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("clean"),
     );
   });
 });

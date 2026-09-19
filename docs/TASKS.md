@@ -13,7 +13,10 @@
   and permission preservation.
 - C1: implemented with CodeMirror 6, LaTeX mode, document tabs, retained per-tab
   undo state, dirty indicators, keyboard editing, and dirty-close confirmation.
-- Next: C2 save state and autosave.
+- C2: implemented with explicit save, Mod-S, 750 ms autosave, monotone buffer
+  revisions, per-file serialized write queues, retryable error state, and dirty
+  close/project-switch protection.
+- Next: C3 recursive watcher and self-write correlation.
 
 The authoritative sequence is:
 

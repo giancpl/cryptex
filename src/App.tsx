@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { EditorState } from "@codemirror/state";
 import type { FileTreeEntry } from "./bindings/FileTreeEntry";
 import type { FileTreePage } from "./bindings/FileTreePage";
@@ -15,7 +15,10 @@ interface OpenDocument {
   path: string;
   fingerprint: string;
   state: EditorState;
-  dirty: boolean;
+  revision: number;
+  savedRevision: number;
+  saveStatus: "clean" | "dirty" | "saving" | "error";
+  saveError: string | undefined;
 }
 
 interface AppProps {
@@ -38,8 +41,135 @@ export function App({
   const [busy, setBusy] = useState(false);
   const [documents, setDocuments] = useState<Record<string, OpenDocument>>({});
   const [activePath, setActivePath] = useState<string | null>(null);
+  const documentsRef = useRef(documents);
+  const saveQueues = useRef(new Map<string, Promise<void>>());
+  const autosaveTimers = useRef(
+    new Map<string, { revision: number; timer: number }>(),
+  );
+
+  useEffect(() => {
+    documentsRef.current = documents;
+  }, [documents]);
+
+  const saveDocument = useCallback(
+    (path: string): Promise<void> => {
+      if (!project) return Promise.resolve();
+      const previous = saveQueues.current.get(path) ?? Promise.resolve();
+      const queued = previous
+        .catch(() => undefined)
+        .then(async () => {
+          const snapshot = documentsRef.current[path];
+          if (!snapshot || snapshot.revision <= snapshot.savedRevision) return;
+          const revision = snapshot.revision;
+          const expectedFingerprint = snapshot.fingerprint;
+          const text = snapshot.state.doc.toString();
+          setDocuments((current) =>
+            current[path]
+              ? {
+                  ...current,
+                  [path]: {
+                    ...current[path],
+                    saveStatus: "saving",
+                    saveError: undefined,
+                  },
+                }
+              : current,
+          );
+          try {
+            const result = await client.writeTextFile(
+              project.projectId,
+              path,
+              text,
+              expectedFingerprint,
+            );
+            setDocuments((current) => {
+              const latest = current[path];
+              if (!latest || latest.fingerprint !== expectedFingerprint)
+                return current;
+              const savedRevision = Math.max(latest.savedRevision, revision);
+              return {
+                ...current,
+                [path]: {
+                  ...latest,
+                  fingerprint: result.fingerprint,
+                  savedRevision,
+                  saveStatus:
+                    latest.revision > savedRevision ? "dirty" : "clean",
+                  saveError: undefined,
+                },
+              };
+            });
+          } catch (reason) {
+            setDocuments((current) =>
+              current[path]
+                ? {
+                    ...current,
+                    [path]: {
+                      ...current[path],
+                      saveStatus: "error",
+                      saveError: errorMessage(reason),
+                    },
+                  }
+                : current,
+            );
+          }
+        });
+      saveQueues.current.set(path, queued);
+      void queued.finally(() => {
+        if (saveQueues.current.get(path) === queued)
+          saveQueues.current.delete(path);
+      });
+      return queued;
+    },
+    [client, project],
+  );
+
+  useEffect(() => {
+    for (const [path, document] of Object.entries(documents)) {
+      const scheduled = autosaveTimers.current.get(path);
+      if (document.saveStatus !== "dirty") {
+        if (scheduled) window.clearTimeout(scheduled.timer);
+        autosaveTimers.current.delete(path);
+      } else if (!scheduled || scheduled.revision !== document.revision) {
+        if (scheduled) window.clearTimeout(scheduled.timer);
+        const timer = window.setTimeout(() => {
+          autosaveTimers.current.delete(path);
+          void saveDocument(path);
+        }, 750);
+        autosaveTimers.current.set(path, {
+          revision: document.revision,
+          timer,
+        });
+      }
+    }
+  }, [documents, saveDocument]);
+
+  useEffect(() => {
+    const timers = autosaveTimers.current;
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (
+        Object.values(documentsRef.current).some(
+          (document) => document.revision > document.savedRevision,
+        )
+      )
+        event.preventDefault();
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", beforeUnload);
+      for (const scheduled of timers.values())
+        window.clearTimeout(scheduled.timer);
+    };
+  }, []);
 
   async function openProject() {
+    if (
+      Object.values(documents).some(
+        (document) => document.revision > document.savedRevision,
+      ) &&
+      !window.confirm("Discard unsaved changes and open another project?")
+    )
+      return;
     const selected = await pickDirectory();
     if (!selected) return;
     setBusy(true);
@@ -50,6 +180,8 @@ export function App({
       setProject(opened);
       setDirectories({ "": root });
       setExpanded(new Set([""]));
+      setDocuments({});
+      setActivePath(null);
     } catch (reason) {
       setError(errorMessage(reason));
     } finally {
@@ -82,24 +214,41 @@ export function App({
     }
     try {
       const loaded = await client.readTextFile(project.projectId, path);
-      const state = createLatexEditorState(loaded.text, (next, changed) => {
-        setDocuments((current) => {
-          const document = current[path];
-          return document
-            ? {
-                ...current,
-                [path]: {
-                  ...document,
-                  state: next,
-                  dirty: document.dirty || changed,
-                },
-              }
-            : current;
-        });
-      });
+      const state = createLatexEditorState(
+        loaded.text,
+        (next, changed) => {
+          setDocuments((current) => {
+            const document = current[path];
+            return document
+              ? {
+                  ...current,
+                  [path]: {
+                    ...document,
+                    state: next,
+                    revision: changed
+                      ? document.revision + 1
+                      : document.revision,
+                    saveStatus: changed ? "dirty" : document.saveStatus,
+                  },
+                }
+              : current;
+          });
+        },
+        () => {
+          void saveDocument(path);
+        },
+      );
       setDocuments((current) => ({
         ...current,
-        [path]: { path, fingerprint: loaded.fingerprint, state, dirty: false },
+        [path]: {
+          path,
+          fingerprint: loaded.fingerprint,
+          state,
+          revision: 0,
+          savedRevision: 0,
+          saveStatus: "clean",
+          saveError: undefined,
+        },
       }));
       setActivePath(path);
     } catch (reason) {
@@ -110,7 +259,8 @@ export function App({
   function closeDocument(path: string) {
     const document = documents[path];
     if (
-      document?.dirty &&
+      document &&
+      document.revision > document.savedRevision &&
       !window.confirm(`Discard unsaved changes to ${path}?`)
     )
       return;
@@ -204,7 +354,7 @@ export function App({
                   onClick={() => setActivePath(document.path)}
                 >
                   {document.path.split("/").at(-1)}
-                  {document.dirty ? " •" : ""}
+                  {document.revision > document.savedRevision ? " •" : ""}
                 </button>
                 <button
                   type="button"
@@ -216,6 +366,22 @@ export function App({
               </div>
             ))}
           </div>
+          {activePath && documents[activePath] ? (
+            <div className="save-bar">
+              <button
+                type="button"
+                onClick={() => void saveDocument(activePath)}
+                disabled={documents[activePath].saveStatus === "saving"}
+              >
+                Save
+              </button>
+              <span role="status">
+                {documents[activePath].saveStatus === "error"
+                  ? documents[activePath].saveError
+                  : documents[activePath].saveStatus}
+              </span>
+            </div>
+          ) : null}
           {activePath && documents[activePath] ? (
             <CodeEditor key={activePath} state={documents[activePath].state} />
           ) : (

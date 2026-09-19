@@ -57,9 +57,30 @@ input {
 }
 .editor-pane {
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto auto 1fr;
   min-height: 0;
   padding: 0;
+}
+.save-bar {
+  align-items: center;
+  background: #13191e;
+  border-bottom: 1px solid #2b343e;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  min-height: 30px;
+  padding: 3px 8px;
+}
+.save-bar button {
+  background: #283640;
+  border: 1px solid #40515d;
+  border-radius: 4px;
+  color: #e8edf2;
+  cursor: pointer;
+}
+.save-bar span {
+  color: #82909f;
+  font-size: 0.72rem;
 }
 .visually-hidden {
   height: 1px;
