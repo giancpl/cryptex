@@ -1,14 +1,20 @@
-use crate::api::{FileTreeEntry, FileTreePage, FileTreeEntryKind, ProjectSummary, API_VERSION};
+use crate::api::{
+    API_VERSION, FileTreeEntry, FileTreeEntryKind, FileTreePage, ProjectSummary, TextDocument,
+    WriteResult,
+};
 use sha2::{Digest, Sha256};
 use std::{
     collections::HashMap,
     ffi::OsStr,
-    fs,
+    fs::{self, File},
+    io::{Read, Write},
     path::{Component, Path, PathBuf},
 };
 use thiserror::Error;
+use tempfile::NamedTempFile;
 
 pub const MAX_DIRECTORY_ENTRIES: usize = 5_000;
+pub const MAX_TEXT_FILE_BYTES: u64 = 5 * 1024 * 1024;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct ProjectId(String);
@@ -170,6 +176,84 @@ impl ProjectService {
         })
     }
 
+    pub fn read_text_file(
+        &self,
+        project_id: &str,
+        relative_path: &str,
+    ) -> Result<TextDocument, ProjectError> {
+        let (path, resolved) = self.resolve_file(project_id, relative_path)?;
+        let bytes = read_bounded(&resolved)?;
+        if bytes.contains(&0) {
+            return Err(ProjectError::BinaryFile);
+        }
+        let text = String::from_utf8(bytes).map_err(|_| ProjectError::InvalidUtf8)?;
+        let size_bytes = text.len() as u64;
+        Ok(TextDocument {
+            api_version: API_VERSION,
+            relative_path: path.display(),
+            fingerprint: fingerprint(text.as_bytes()),
+            text,
+            size_bytes,
+        })
+    }
+
+    pub fn write_text_file(
+        &self,
+        project_id: &str,
+        relative_path: &str,
+        text: &str,
+        expected_fingerprint: &str,
+    ) -> Result<WriteResult, ProjectError> {
+        if text.len() as u64 > MAX_TEXT_FILE_BYTES {
+            return Err(ProjectError::FileTooLarge);
+        }
+        let (path, resolved) = self.resolve_file(project_id, relative_path)?;
+        let original = read_bounded(&resolved)?;
+        if fingerprint(&original) != expected_fingerprint {
+            return Err(ProjectError::StaleFingerprint);
+        }
+        let permissions = fs::metadata(&resolved).map_err(ProjectError::Io)?.permissions();
+        let parent = resolved.parent().ok_or(ProjectError::InvalidParent)?;
+        let mut temporary = NamedTempFile::new_in(parent).map_err(ProjectError::Io)?;
+        temporary.write_all(text.as_bytes()).map_err(ProjectError::Io)?;
+        temporary.flush().map_err(ProjectError::Io)?;
+        temporary.as_file().sync_all().map_err(ProjectError::Io)?;
+        temporary.as_file().set_permissions(permissions).map_err(ProjectError::Io)?;
+
+        // Revalidate immediately before replacement. This prevents normal editor races;
+        // callers must still treat filesystem writes as fallible external operations.
+        if fingerprint(&read_bounded(&resolved)?) != expected_fingerprint {
+            return Err(ProjectError::StaleFingerprint);
+        }
+        temporary.persist(&resolved).map_err(|error| ProjectError::Io(error.error))?;
+        sync_directory(parent)?;
+
+        Ok(WriteResult {
+            api_version: API_VERSION,
+            relative_path: path.display(),
+            fingerprint: fingerprint(text.as_bytes()),
+            size_bytes: text.len() as u64,
+        })
+    }
+
+    fn resolve_file(
+        &self,
+        project_id: &str,
+        relative_path: &str,
+    ) -> Result<(ProjectPath, PathBuf), ProjectError> {
+        let id = ProjectId::parse(project_id)?;
+        let project = self.projects.get(&id).ok_or(ProjectError::UnknownProject)?;
+        let path = ProjectPath::parse(relative_path)?;
+        if path.as_path().as_os_str().is_empty() {
+            return Err(ProjectError::NotFile);
+        }
+        let resolved = project.resolve_existing(&path)?;
+        if !resolved.is_file() {
+            return Err(ProjectError::NotFile);
+        }
+        Ok((path, resolved))
+    }
+
     fn map_entry(
         &self,
         project: &ProjectRoot,
@@ -207,6 +291,28 @@ impl ProjectService {
     }
 }
 
+fn read_bounded(path: &Path) -> Result<Vec<u8>, ProjectError> {
+    let file = File::open(path).map_err(ProjectError::Io)?;
+    let mut bytes = Vec::new();
+    file.take(MAX_TEXT_FILE_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(ProjectError::Io)?;
+    if bytes.len() as u64 > MAX_TEXT_FILE_BYTES {
+        return Err(ProjectError::FileTooLarge);
+    }
+    Ok(bytes)
+}
+
+fn fingerprint(bytes: &[u8]) -> String {
+    format!("{:x}", Sha256::digest(bytes))
+}
+
+fn sync_directory(path: &Path) -> Result<(), ProjectError> {
+    #[cfg(unix)]
+    File::open(path).and_then(|directory| directory.sync_all()).map_err(ProjectError::Io)?;
+    Ok(())
+}
+
 fn entry_order(kind: &FileTreeEntryKind) -> u8 {
     match kind {
         FileTreeEntryKind::Directory => 0,
@@ -234,6 +340,18 @@ pub enum ProjectError {
     UnknownProject,
     #[error("requested path is not a directory")]
     NotDirectory,
+    #[error("requested path is not a regular file")]
+    NotFile,
+    #[error("file exceeds the 5 MiB text editing limit")]
+    FileTooLarge,
+    #[error("file appears to contain binary data")]
+    BinaryFile,
+    #[error("file is not valid UTF-8")]
+    InvalidUtf8,
+    #[error("file changed on disk since it was read")]
+    StaleFingerprint,
+    #[error("file has no valid parent directory")]
+    InvalidParent,
     #[error("filesystem operation failed: {0}")]
     Io(#[source] std::io::Error),
 }
@@ -300,6 +418,99 @@ mod tests {
         let page = service.list_directory(&project.project_id, "").expect("list root");
         assert!(page.entries.iter().find(|entry| entry.name == ".hidden").expect("hidden").hidden);
         assert!(page.entries.iter().find(|entry| entry.name == "main.aux").expect("generated").generated);
+    }
+
+    #[test]
+    fn reads_utf8_text_with_a_content_fingerprint() {
+        let directory = tempdir().expect("temporary project");
+        fs::write(directory.path().join("main.tex"), "Cifratura: π\n").expect("fixture file");
+        let mut service = ProjectService::default();
+        let project = service.open(directory.path()).expect("open project");
+        let document = service.read_text_file(&project.project_id, "main.tex").expect("read text");
+        assert_eq!(document.text, "Cifratura: π\n");
+        assert_eq!(document.size_bytes, 14);
+        assert_eq!(document.fingerprint.len(), 64);
+    }
+
+    #[test]
+    fn rejects_binary_invalid_utf8_and_oversized_files() {
+        let directory = tempdir().expect("temporary project");
+        fs::write(directory.path().join("binary.dat"), [1, 0, 2]).expect("binary fixture");
+        fs::write(directory.path().join("invalid.tex"), [0xff, 0xfe]).expect("utf8 fixture");
+        fs::write(
+            directory.path().join("large.tex"),
+            vec![b'x'; MAX_TEXT_FILE_BYTES as usize + 1],
+        )
+        .expect("large fixture");
+        let mut service = ProjectService::default();
+        let project = service.open(directory.path()).expect("open project");
+        assert!(matches!(
+            service.read_text_file(&project.project_id, "binary.dat"),
+            Err(ProjectError::BinaryFile)
+        ));
+        assert!(matches!(
+            service.read_text_file(&project.project_id, "invalid.tex"),
+            Err(ProjectError::InvalidUtf8)
+        ));
+        assert!(matches!(
+            service.read_text_file(&project.project_id, "large.tex"),
+            Err(ProjectError::FileTooLarge)
+        ));
+    }
+
+    #[test]
+    fn stale_fingerprint_never_overwrites_an_external_change() {
+        let directory = tempdir().expect("temporary project");
+        let file = directory.path().join("main.tex");
+        fs::write(&file, "original").expect("fixture file");
+        let mut service = ProjectService::default();
+        let project = service.open(directory.path()).expect("open project");
+        let document = service.read_text_file(&project.project_id, "main.tex").expect("read text");
+        fs::write(&file, "external edit").expect("external edit");
+        assert!(matches!(
+            service.write_text_file(
+                &project.project_id,
+                "main.tex",
+                "CrypTex edit",
+                &document.fingerprint,
+            ),
+            Err(ProjectError::StaleFingerprint)
+        ));
+        assert_eq!(fs::read_to_string(file).expect("preserved file"), "external edit");
+    }
+
+    #[test]
+    fn atomic_write_returns_the_new_fingerprint() {
+        let directory = tempdir().expect("temporary project");
+        let file = directory.path().join("main.tex");
+        fs::write(&file, "original").expect("fixture file");
+        let mut service = ProjectService::default();
+        let project = service.open(directory.path()).expect("open project");
+        let document = service.read_text_file(&project.project_id, "main.tex").expect("read text");
+        let result = service
+            .write_text_file(&project.project_id, "main.tex", "updated", &document.fingerprint)
+            .expect("atomic write");
+        let reread = service.read_text_file(&project.project_id, "main.tex").expect("reread text");
+        assert_eq!(reread.text, "updated");
+        assert_eq!(result.fingerprint, reread.fingerprint);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn atomic_write_preserves_unix_permissions() {
+        use std::os::unix::fs::{MetadataExt, PermissionsExt};
+
+        let directory = tempdir().expect("temporary project");
+        let file = directory.path().join("main.tex");
+        fs::write(&file, "original").expect("fixture file");
+        fs::set_permissions(&file, fs::Permissions::from_mode(0o640)).expect("fixture permissions");
+        let mut service = ProjectService::default();
+        let project = service.open(directory.path()).expect("open project");
+        let document = service.read_text_file(&project.project_id, "main.tex").expect("read text");
+        service
+            .write_text_file(&project.project_id, "main.tex", "updated", &document.fingerprint)
+            .expect("atomic write");
+        assert_eq!(fs::metadata(file).expect("metadata").mode() & 0o777, 0o640);
     }
 
     #[cfg(unix)]

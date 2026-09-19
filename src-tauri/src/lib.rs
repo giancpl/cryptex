@@ -11,7 +11,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             api::health,
             api::open_project,
-            api::list_directory
+            api::list_directory,
+            api::read_text_file,
+            api::write_text_file
         ])
         .run(tauri::generate_context!())
         .expect("failed to run CrypTex");

@@ -1,5 +1,8 @@
 use cryptex_core::{
-    api::{API_VERSION, ApiError, FileTreePage, HealthResponse, ProjectSummary},
+    api::{
+        API_VERSION, ApiError, FileTreePage, HealthResponse, ProjectSummary, TextDocument,
+        WriteResult,
+    },
     project::{ProjectError, ProjectService},
 };
 use std::sync::Mutex;
@@ -39,10 +42,44 @@ pub fn list_directory(
         .map_err(project_error)
 }
 
+#[tauri::command(rename_all = "camelCase")]
+pub fn read_text_file(
+    project_id: String,
+    relative_path: String,
+    projects: State<'_, Mutex<ProjectService>>,
+) -> Result<TextDocument, ApiError> {
+    projects
+        .lock()
+        .map_err(|_| internal_error("project service lock is poisoned"))?
+        .read_text_file(&project_id, &relative_path)
+        .map_err(project_error)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn write_text_file(
+    project_id: String,
+    relative_path: String,
+    text: String,
+    expected_fingerprint: String,
+    projects: State<'_, Mutex<ProjectService>>,
+) -> Result<WriteResult, ApiError> {
+    projects
+        .lock()
+        .map_err(|_| internal_error("project service lock is poisoned"))?
+        .write_text_file(&project_id, &relative_path, &text, &expected_fingerprint)
+        .map_err(project_error)
+}
+
 fn project_error(error: ProjectError) -> ApiError {
     let code = match &error {
         ProjectError::UnknownProject => "PROJECT_NOT_OPEN",
         ProjectError::NotDirectory => "NOT_A_DIRECTORY",
+        ProjectError::NotFile => "NOT_A_FILE",
+        ProjectError::FileTooLarge => "FILE_TOO_LARGE",
+        ProjectError::BinaryFile => "BINARY_FILE",
+        ProjectError::InvalidUtf8 => "INVALID_UTF8",
+        ProjectError::StaleFingerprint => "STALE_FINGERPRINT",
+        ProjectError::InvalidParent => "INVALID_PARENT",
         ProjectError::Path(_) => "UNSAFE_PROJECT_PATH",
         ProjectError::Io(_) => "FILESYSTEM_ERROR",
     };

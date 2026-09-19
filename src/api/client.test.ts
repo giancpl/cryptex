@@ -12,6 +12,8 @@ it("exposes a mockable typed backend contract", async () => {
     health: () => Promise.resolve(expected),
     openProject: () => Promise.reject(new Error("not used")),
     listDirectory: () => Promise.reject(new Error("not used")),
+    readTextFile: () => Promise.reject(new Error("not used")),
+    writeTextFile: () => Promise.reject(new Error("not used")),
   };
 
   await expect(client.health()).resolves.toEqual(expected);

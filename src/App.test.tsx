@@ -41,6 +41,8 @@ describe("App", () => {
       health: vi.fn(),
       openProject,
       listDirectory,
+      readTextFile: vi.fn(),
+      writeTextFile: vi.fn(),
     };
     render(
       <App client={client} pickDirectory={() => Promise.resolve("/paper")} />,

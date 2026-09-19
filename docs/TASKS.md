@@ -8,7 +8,10 @@
   root-contained symlink policy, typed commands, and native folder selection.
 - B2: implemented with bounded lazy directory loading, stable ordering, explicit
   hidden/build-file filters, and inaccessible-entry reporting.
-- Next: B3 fingerprinted reads and atomic writes.
+- B3: implemented with bounded UTF-8 reads, binary detection, SHA-256 content
+  fingerprints, stale-write rejection, atomic same-directory replacement, flush,
+  and permission preservation.
+- Next: C1 CodeMirror and document tabs; C2 will consume B3 for save scheduling.
 
 The authoritative sequence is:
 

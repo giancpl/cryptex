@@ -3,11 +3,20 @@ import { open } from "@tauri-apps/plugin-dialog";
 import type { FileTreePage } from "../bindings/FileTreePage";
 import type { HealthResponse } from "../bindings/HealthResponse";
 import type { ProjectSummary } from "../bindings/ProjectSummary";
+import type { TextDocument } from "../bindings/TextDocument";
+import type { WriteResult } from "../bindings/WriteResult";
 
 export interface BackendClient {
   health(): Promise<HealthResponse>;
   openProject(root: string): Promise<ProjectSummary>;
   listDirectory(projectId: string, relativePath: string): Promise<FileTreePage>;
+  readTextFile(projectId: string, relativePath: string): Promise<TextDocument>;
+  writeTextFile(
+    projectId: string,
+    relativePath: string,
+    text: string,
+    expectedFingerprint: string,
+  ): Promise<WriteResult>;
 }
 
 export const backendClient: BackendClient = {
@@ -15,6 +24,15 @@ export const backendClient: BackendClient = {
   openProject: (root) => invoke<ProjectSummary>("open_project", { root }),
   listDirectory: (projectId, relativePath) =>
     invoke<FileTreePage>("list_directory", { projectId, relativePath }),
+  readTextFile: (projectId, relativePath) =>
+    invoke<TextDocument>("read_text_file", { projectId, relativePath }),
+  writeTextFile: (projectId, relativePath, text, expectedFingerprint) =>
+    invoke<WriteResult>("write_text_file", {
+      projectId,
+      relativePath,
+      text,
+      expectedFingerprint,
+    }),
 };
 
 export async function pickProjectDirectory(): Promise<string | null> {

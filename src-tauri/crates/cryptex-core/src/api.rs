@@ -79,6 +79,27 @@ pub enum FileTreeEntryKind {
     Other,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
+pub struct TextDocument {
+    pub api_version: u16,
+    pub relative_path: String,
+    pub text: String,
+    pub fingerprint: String,
+    pub size_bytes: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
+pub struct WriteResult {
+    pub api_version: u16,
+    pub relative_path: String,
+    pub fingerprint: String,
+    pub size_bytes: u64,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
