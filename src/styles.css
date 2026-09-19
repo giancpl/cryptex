@@ -55,6 +55,53 @@ input {
 .pane:last-child {
   border-right: 0;
 }
+.editor-pane {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 0;
+  padding: 0;
+}
+.visually-hidden {
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+  clip: rect(0 0 0 0);
+}
+.editor-tabs {
+  background: #151b21;
+  display: flex;
+  min-height: 36px;
+  overflow-x: auto;
+}
+.editor-tab {
+  align-items: center;
+  border-right: 1px solid #2b343e;
+  display: flex;
+}
+.editor-tab.active {
+  background: #101418;
+}
+.editor-tab button {
+  background: transparent;
+  border: 0;
+  color: #9da9b4;
+  cursor: pointer;
+  padding: 9px 8px;
+}
+.editor-tab.active button:first-child {
+  color: #eef2f5;
+}
+.code-editor {
+  min-height: 0;
+  overflow: hidden;
+}
+.code-editor .cm-editor,
+.code-editor .cm-scroller {
+  height: 100%;
+}
 .pane h1 {
   color: #e8edf2;
   font-size: 0.78rem;

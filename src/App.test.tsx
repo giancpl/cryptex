@@ -37,11 +37,18 @@ describe("App", () => {
         },
       ],
     });
+    const readTextFile = vi.fn().mockResolvedValue({
+      apiVersion: 1,
+      relativePath: "main.tex",
+      text: "\\\\documentclass{article}",
+      fingerprint: "f".repeat(64),
+      sizeBytes: 23,
+    });
     const client: BackendClient = {
       health: vi.fn(),
       openProject,
       listDirectory,
-      readTextFile: vi.fn(),
+      readTextFile,
       writeTextFile: vi.fn(),
     };
     render(
@@ -53,5 +60,13 @@ describe("App", () => {
     );
     expect(openProject).toHaveBeenCalledWith("/paper");
     expect(listDirectory).toHaveBeenCalledWith("a".repeat(64), "");
+    fireEvent.click(screen.getByRole("button", { name: /main\.tex/ }));
+    await waitFor(() =>
+      expect(readTextFile).toHaveBeenCalledWith("a".repeat(64), "main.tex"),
+    );
+    expect(screen.getByRole("tab", { name: "main.tex" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 });

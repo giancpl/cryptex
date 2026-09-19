@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { EditorState } from "@codemirror/state";
 import type { FileTreeEntry } from "./bindings/FileTreeEntry";
 import type { FileTreePage } from "./bindings/FileTreePage";
 import type { ProjectSummary } from "./bindings/ProjectSummary";
@@ -7,6 +8,15 @@ import {
   pickProjectDirectory,
   type BackendClient,
 } from "./api/client";
+import { CodeEditor } from "./editor/CodeEditor";
+import { createLatexEditorState } from "./editor/editorState";
+
+interface OpenDocument {
+  path: string;
+  fingerprint: string;
+  state: EditorState;
+  dirty: boolean;
+}
 
 interface AppProps {
   client?: BackendClient;
@@ -26,6 +36,8 @@ export function App({
   const [showGenerated, setShowGenerated] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [documents, setDocuments] = useState<Record<string, OpenDocument>>({});
+  const [activePath, setActivePath] = useState<string | null>(null);
 
   async function openProject() {
     const selected = await pickDirectory();
@@ -59,6 +71,59 @@ export function App({
       setExpanded((current) => new Set(current).add(path));
     } catch (reason) {
       setError(errorMessage(reason));
+    }
+  }
+
+  async function openDocument(path: string) {
+    if (!project) return;
+    if (documents[path]) {
+      setActivePath(path);
+      return;
+    }
+    try {
+      const loaded = await client.readTextFile(project.projectId, path);
+      const state = createLatexEditorState(loaded.text, (next, changed) => {
+        setDocuments((current) => {
+          const document = current[path];
+          return document
+            ? {
+                ...current,
+                [path]: {
+                  ...document,
+                  state: next,
+                  dirty: document.dirty || changed,
+                },
+              }
+            : current;
+        });
+      });
+      setDocuments((current) => ({
+        ...current,
+        [path]: { path, fingerprint: loaded.fingerprint, state, dirty: false },
+      }));
+      setActivePath(path);
+    } catch (reason) {
+      setError(errorMessage(reason));
+    }
+  }
+
+  function closeDocument(path: string) {
+    const document = documents[path];
+    if (
+      document?.dirty &&
+      !window.confirm(`Discard unsaved changes to ${path}?`)
+    )
+      return;
+    setDocuments((current) => {
+      const next = { ...current };
+      delete next[path];
+      return next;
+    });
+    if (activePath === path) {
+      const remaining = Object.keys(documents).filter(
+        (candidate) => candidate !== path,
+      );
+      setActivePath(remaining.at(-1) ?? null);
     }
   }
 
@@ -111,15 +176,51 @@ export function App({
                 showHidden={showHidden}
                 showGenerated={showGenerated}
                 onToggle={toggleDirectory}
+                onOpen={openDocument}
               />
             </>
           ) : (
             <p>Open a LaTeX project to browse its files.</p>
           )}
         </section>
-        <section className="pane" aria-labelledby="pane-editor">
-          <h1 id="pane-editor">Editor</h1>
-          <p>Select a text file to begin editing.</p>
+        <section className="pane editor-pane" aria-labelledby="pane-editor">
+          <h1 id="pane-editor" className="visually-hidden">
+            Editor
+          </h1>
+          <div
+            className="editor-tabs"
+            role="tablist"
+            aria-label="Open documents"
+          >
+            {Object.values(documents).map((document) => (
+              <div
+                className={`editor-tab ${activePath === document.path ? "active" : ""}`}
+                key={document.path}
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activePath === document.path}
+                  onClick={() => setActivePath(document.path)}
+                >
+                  {document.path.split("/").at(-1)}
+                  {document.dirty ? " •" : ""}
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Close ${document.path}`}
+                  onClick={() => closeDocument(document.path)}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+          {activePath && documents[activePath] ? (
+            <CodeEditor key={activePath} state={documents[activePath].state} />
+          ) : (
+            <p>Select a text file to begin editing.</p>
+          )}
         </section>
         <section className="pane" aria-labelledby="pane-pdf">
           <h1 id="pane-pdf">PDF</h1>
@@ -137,6 +238,7 @@ interface FileTreeProps {
   showHidden: boolean;
   showGenerated: boolean;
   onToggle(path: string): Promise<void>;
+  onOpen(path: string): Promise<void>;
 }
 
 function FileTree(props: FileTreeProps) {
@@ -170,9 +272,13 @@ function FileTreeItem({
       <button
         className={`tree-entry ${entry.accessible ? "" : "inaccessible"}`}
         type="button"
-        disabled={!entry.accessible || !isDirectory}
+        disabled={!entry.accessible}
         aria-expanded={isDirectory ? isExpanded : undefined}
-        onClick={() => void props.onToggle(entry.relativePath)}
+        onClick={() =>
+          void (isDirectory
+            ? props.onToggle(entry.relativePath)
+            : props.onOpen(entry.relativePath))
+        }
       >
         <span aria-hidden="true">
           {isDirectory ? (isExpanded ? "▾" : "▸") : "·"}

@@ -11,7 +11,9 @@
 - B3: implemented with bounded UTF-8 reads, binary detection, SHA-256 content
   fingerprints, stale-write rejection, atomic same-directory replacement, flush,
   and permission preservation.
-- Next: C1 CodeMirror and document tabs; C2 will consume B3 for save scheduling.
+- C1: implemented with CodeMirror 6, LaTeX mode, document tabs, retained per-tab
+  undo state, dirty indicators, keyboard editing, and dirty-close confirmation.
+- Next: C2 save state and autosave.
 
 The authoritative sequence is:
 

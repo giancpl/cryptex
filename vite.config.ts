@@ -13,6 +13,14 @@ export default defineConfig({
     target: "es2022",
     minify: process.env.TAURI_ENV_DEBUG ? false : "esbuild",
     sourcemap: Boolean(process.env.TAURI_ENV_DEBUG),
+    rollupOptions: {
+      output: {
+        manualChunks: (id) =>
+          id.includes("/node_modules/.pnpm/@codemirror+")
+            ? "codemirror"
+            : undefined,
+      },
+    },
   },
   test: {
     environment: "jsdom",
