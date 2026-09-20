@@ -25,6 +25,19 @@ pnpm tauri build
 
 `pnpm dev` starts the web UI. `pnpm tauri dev` starts the desktop application.
 
+The D1 TeX Live spike can measure an official TLPDB and verify an isolated
+installation without modifying the system:
+
+```bash
+node scripts/measure-texlive.mjs /path/to/texlive.tlpdb
+scripts/verify-texlive-spike.sh /path/to/texlive/bin/x86_64-linux
+```
+
+See [ADR-002](docs/adr/002-managed-texlive-2026.md) for the pinned payload
+decision, measured size, licensing gates, and remaining clean-machine checks.
+
 ## Status
 
-M0 repository foundation is in progress. No production release exists.
+M0 and local project editing through C6 are implemented. D1 has frozen the
+managed TeX Live direction; D2 toolchain lifecycle work is next. No production
+release exists.

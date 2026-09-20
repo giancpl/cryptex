@@ -28,7 +28,10 @@
 - C6: implemented with versioned atomic recovery snapshots outside projects,
   restart discovery, corrupt-snapshot warnings, explicit side-by-side review,
   restore, and cleanup after confirmed save or discard.
-- Next: D1 managed TeX distribution and packaging spike.
+- D1: completed with the TeX Live 2026 curated-root decision, reproducible TLPDB
+  measurement, verified installer identity, isolated multi-engine fixture runner,
+  offline/versioned delivery design, update/rollback strategy, and licensing gates.
+- Next: D2 managed toolchain discovery and lifecycle.
 
 The authoritative sequence is:
 

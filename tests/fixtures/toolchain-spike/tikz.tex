@@ -1,0 +1,9 @@
+\documentclass{article}
+\usepackage{tikz}
+\begin{document}
+\begin{tikzpicture}
+  \node[draw] (a) {Alice};
+  \node[draw] (b) at (2,0) {Bob};
+  \draw[->] (a) -- node[above] {$c$} (b);
+\end{tikzpicture}
+\end{document}
