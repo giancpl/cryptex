@@ -78,7 +78,7 @@ export function App({
             if (disposed) return;
             setDirectories(
               Object.fromEntries(
-                loadedDirectories.map((path, index) => [path, pages[index]]),
+                loadedDirectories.map((path, index) => [path, pages[index]!]),
               ),
             );
           })
