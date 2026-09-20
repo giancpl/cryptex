@@ -14,6 +14,7 @@ export interface BackendClient {
   listDirectory(projectId: string, relativePath: string): Promise<FileTreePage>;
   readTextFile(projectId: string, relativePath: string): Promise<TextDocument>;
   writeTextFile(
+    this: void,
     projectId: string,
     relativePath: string,
     text: string,

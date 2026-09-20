@@ -198,3 +198,51 @@ input {
   line-height: 1.5;
   max-width: 28rem;
 }
+
+.conflict-banner {
+  background: #352719;
+  border-bottom: 1px solid #8d6534;
+  color: #f4d7aa;
+  padding: 10px 12px;
+}
+.conflict-banner p {
+  color: #dcbf96;
+  margin: 3px 0 8px;
+}
+.conflict-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.conflict-actions button {
+  background: #49351f;
+  border: 1px solid #8d6534;
+  border-radius: 4px;
+  color: #f4e4cc;
+  cursor: pointer;
+}
+.conflict-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.conflict-comparison {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 10px;
+  max-height: 32vh;
+  overflow: auto;
+}
+.conflict-comparison h2 {
+  font-size: 0.75rem;
+  margin: 0 0 4px;
+}
+.conflict-comparison pre {
+  background: #17191b;
+  border: 1px solid #5a4936;
+  margin: 0;
+  min-height: 5rem;
+  overflow: auto;
+  padding: 8px;
+  white-space: pre-wrap;
+}

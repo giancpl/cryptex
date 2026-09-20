@@ -1,7 +1,14 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import type { BackendClient } from "./api/client";
+import type { ProjectFileChange } from "./bindings/ProjectFileChange";
 
 describe("App", () => {
   it("renders the minimal Project, Editor, and PDF workspace", () => {
@@ -96,4 +103,170 @@ describe("App", () => {
       expect(screen.getByRole("status")).toHaveTextContent("clean"),
     );
   });
+
+  it("reloads a clean open buffer after an external modification", async () => {
+    let notify: ((change: ProjectFileChange) => void) | undefined;
+    const projectId = "b".repeat(64);
+    const readTextFile = vi
+      .fn()
+      .mockResolvedValueOnce({
+        apiVersion: 1,
+        relativePath: "main.tex",
+        text: "original",
+        fingerprint: "1".repeat(64),
+        sizeBytes: 8,
+      })
+      .mockResolvedValue({
+        apiVersion: 1,
+        relativePath: "main.tex",
+        text: "external",
+        fingerprint: "2".repeat(64),
+        sizeBytes: 8,
+      });
+    const client = conflictClient(projectId, readTextFile, (listener) => {
+      notify = listener;
+    });
+    render(
+      <App client={client} pickDirectory={() => Promise.resolve("/paper")} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open folder" }));
+    await screen.findByText("main.tex");
+    fireEvent.click(screen.getByRole("button", { name: /main\.tex/ }));
+    await waitFor(() =>
+      expect(document.querySelector(".cm-content")).toHaveTextContent(
+        "original",
+      ),
+    );
+
+    act(() =>
+      notify?.({
+        apiVersion: 1,
+        projectId,
+        relativePaths: ["main.tex"],
+        kind: "modify",
+        selfWrite: false,
+      }),
+    );
+
+    await waitFor(() =>
+      expect(document.querySelector(".cm-content")).toHaveTextContent(
+        "external",
+      ),
+    );
+    expect(screen.queryByText("External change detected")).toBeNull();
+  });
+
+  it("blocks a dirty buffer until an external change is explicitly resolved", async () => {
+    let notify: ((change: ProjectFileChange) => void) | undefined;
+    const projectId = "c".repeat(64);
+    const readTextFile = vi
+      .fn()
+      .mockResolvedValueOnce({
+        apiVersion: 1,
+        relativePath: "main.tex",
+        text: "original",
+        fingerprint: "1".repeat(64),
+        sizeBytes: 8,
+      })
+      .mockResolvedValue({
+        apiVersion: 1,
+        relativePath: "main.tex",
+        text: "external",
+        fingerprint: "2".repeat(64),
+        sizeBytes: 8,
+      });
+    const client = conflictClient(projectId, readTextFile, (listener) => {
+      notify = listener;
+    });
+    render(
+      <App client={client} pickDirectory={() => Promise.resolve("/paper")} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open folder" }));
+    await screen.findByText("main.tex");
+    fireEvent.click(screen.getByRole("button", { name: /main\.tex/ }));
+    const content = await waitFor(() => {
+      const element = document.querySelector<HTMLElement>(".cm-content");
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    content.textContent = "my edit";
+    fireEvent.input(content, { inputType: "insertText", data: "my edit" });
+    await screen.findByRole("tab", { name: /main\.tex •/ });
+
+    act(() =>
+      notify?.({
+        apiVersion: 1,
+        projectId,
+        relativePaths: ["main.tex"],
+        kind: "modify",
+        selfWrite: false,
+      }),
+    );
+
+    expect(await screen.findByText("External change detected")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Compare" }));
+    expect(screen.getByText("Your buffer")).toBeVisible();
+    expect(screen.getByText("Disk version")).toBeVisible();
+    expect(screen.getByText("external")).toBeVisible();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Overwrite with my version" }),
+    );
+    await waitFor(() =>
+      expect(client.writeTextFile).toHaveBeenCalledWith(
+        projectId,
+        "main.tex",
+        "my edit",
+        "2".repeat(64),
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.queryByText("External change detected")).toBeNull(),
+    );
+  });
 });
+
+function conflictClient(
+  projectId: string,
+  readTextFile: BackendClient["readTextFile"],
+  capture: (listener: (change: ProjectFileChange) => void) => void,
+): BackendClient {
+  return {
+    health: vi.fn(),
+    openProject: vi.fn().mockResolvedValue({
+      apiVersion: 1,
+      projectId,
+      name: "paper",
+      canonicalRoot: "/paper",
+    }),
+    listDirectory: vi.fn().mockResolvedValue({
+      apiVersion: 1,
+      directory: "",
+      truncated: false,
+      entries: [
+        {
+          name: "main.tex",
+          relativePath: "main.tex",
+          kind: "file",
+          isSymlink: false,
+          accessible: true,
+          hidden: false,
+          generated: false,
+        },
+      ],
+    }),
+    readTextFile,
+    writeTextFile: vi.fn().mockResolvedValue({
+      apiVersion: 1,
+      relativePath: "main.tex",
+      fingerprint: "3".repeat(64),
+      sizeBytes: 7,
+    }),
+    onProjectFileChange: vi
+      .fn()
+      .mockImplementation((listener: (change: ProjectFileChange) => void) => {
+        capture(listener);
+        return Promise.resolve(() => undefined);
+      }),
+  };
+}

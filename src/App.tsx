@@ -3,6 +3,7 @@ import type { EditorState } from "@codemirror/state";
 import type { FileTreeEntry } from "./bindings/FileTreeEntry";
 import type { FileTreePage } from "./bindings/FileTreePage";
 import type { ProjectSummary } from "./bindings/ProjectSummary";
+import type { TextDocument } from "./bindings/TextDocument";
 import {
   backendClient,
   pickProjectDirectory,
@@ -17,8 +18,16 @@ interface OpenDocument {
   state: EditorState;
   revision: number;
   savedRevision: number;
-  saveStatus: "clean" | "dirty" | "saving" | "error";
+  saveStatus: "clean" | "dirty" | "saving" | "error" | "conflict";
   saveError: string | undefined;
+  generation: number;
+  conflict: DocumentConflict | undefined;
+}
+
+interface DocumentConflict {
+  disk: TextDocument | undefined;
+  message: string;
+  comparing: boolean;
 }
 
 interface AppProps {
@@ -56,6 +65,193 @@ export function App({
     directoriesRef.current = directories;
   }, [directories]);
 
+  const saveDocument = useCallback(
+    (path: string): Promise<void> => {
+      if (!project) return Promise.resolve();
+      const previous = saveQueues.current.get(path) ?? Promise.resolve();
+      const queued = previous
+        .catch(() => undefined)
+        .then(async () => {
+          const snapshot = documentsRef.current[path];
+          if (
+            !snapshot ||
+            snapshot.saveStatus === "conflict" ||
+            snapshot.revision <= snapshot.savedRevision
+          )
+            return;
+          const revision = snapshot.revision;
+          const expectedFingerprint = snapshot.fingerprint;
+          const text = snapshot.state.doc.toString();
+          setDocuments((current) =>
+            current[path]
+              ? {
+                  ...current,
+                  [path]: {
+                    ...current[path],
+                    saveStatus: "saving",
+                    saveError: undefined,
+                  },
+                }
+              : current,
+          );
+          try {
+            const result = await client.writeTextFile(
+              project.projectId,
+              path,
+              text,
+              expectedFingerprint,
+            );
+            setDocuments((current) => {
+              const latest = current[path];
+              if (
+                !latest ||
+                latest.saveStatus === "conflict" ||
+                latest.fingerprint !== expectedFingerprint
+              )
+                return current;
+              const savedRevision = Math.max(latest.savedRevision, revision);
+              return {
+                ...current,
+                [path]: {
+                  ...latest,
+                  fingerprint: result.fingerprint,
+                  savedRevision,
+                  saveStatus:
+                    latest.revision > savedRevision ? "dirty" : "clean",
+                  saveError: undefined,
+                },
+              };
+            });
+          } catch (reason) {
+            let disk: TextDocument | undefined;
+            const stale = errorCode(reason) === "STALE_FINGERPRINT";
+            if (stale) {
+              try {
+                disk = await client.readTextFile(project.projectId, path);
+              } catch {
+                // A deleted or inaccessible disk version is still a conflict.
+              }
+            }
+            setDocuments((current) =>
+              current[path]
+                ? {
+                    ...current,
+                    [path]: {
+                      ...current[path],
+                      saveStatus: stale ? "conflict" : "error",
+                      saveError: stale ? undefined : errorMessage(reason),
+                      conflict: stale
+                        ? {
+                            disk,
+                            message:
+                              "The file changed on disk while it was being saved.",
+                            comparing: false,
+                          }
+                        : current[path].conflict,
+                    },
+                  }
+                : current,
+            );
+          }
+        });
+      saveQueues.current.set(path, queued);
+      void queued.finally(() => {
+        if (saveQueues.current.get(path) === queued)
+          saveQueues.current.delete(path);
+      });
+      return queued;
+    },
+    [client, project],
+  );
+
+  const makeEditorState = useCallback(
+    (path: string, text: string) =>
+      createLatexEditorState(
+        text,
+        (next, changed) => {
+          setDocuments((current) => {
+            const document = current[path];
+            return document
+              ? {
+                  ...current,
+                  [path]: {
+                    ...document,
+                    state: next,
+                    revision: changed
+                      ? document.revision + 1
+                      : document.revision,
+                    saveStatus: changed
+                      ? document.conflict
+                        ? "conflict"
+                        : "dirty"
+                      : document.saveStatus,
+                  },
+                }
+              : current;
+          });
+        },
+        () => {
+          void saveDocument(path);
+        },
+      ),
+    [saveDocument],
+  );
+
+  const reconcileExternalDocument = useCallback(
+    async (path: string) => {
+      if (!project || !documentsRef.current[path]) return;
+      let disk: TextDocument | undefined;
+      try {
+        disk = await client.readTextFile(project.projectId, path);
+      } catch {
+        // Removal and permission changes are represented by an unavailable disk copy.
+      }
+      setDocuments((current) => {
+        const document = current[path];
+        if (!document || disk?.fingerprint === document.fingerprint)
+          return current;
+        const dirty =
+          document.revision > document.savedRevision ||
+          document.saveStatus === "saving" ||
+          document.saveStatus === "error" ||
+          document.saveStatus === "conflict";
+        if (dirty || !disk) {
+          return {
+            ...current,
+            [path]: {
+              ...document,
+              saveStatus: "conflict",
+              saveError: undefined,
+              conflict: {
+                disk,
+                message: disk
+                  ? "This file was modified outside CrypTex."
+                  : "This file was removed or became inaccessible outside CrypTex.",
+                comparing: document.conflict?.comparing ?? false,
+              },
+            },
+          };
+        }
+        const revision = document.revision + 1;
+        return {
+          ...current,
+          [path]: {
+            ...document,
+            fingerprint: disk.fingerprint,
+            state: makeEditorState(path, disk.text),
+            revision,
+            savedRevision: revision,
+            saveStatus: "clean",
+            saveError: undefined,
+            generation: document.generation + 1,
+            conflict: undefined,
+          },
+        };
+      });
+    },
+    [client, makeEditorState, project],
+  );
+
   useEffect(() => {
     if (!project) return;
     let disposed = false;
@@ -85,6 +281,11 @@ export function App({
           .catch((reason: unknown) => {
             if (!disposed) setError(errorMessage(reason));
           });
+        const affected =
+          change.kind === "rescan"
+            ? Object.keys(documentsRef.current)
+            : change.relativePaths;
+        for (const path of affected) void reconcileExternalDocument(path);
       })
       .then((stop) => {
         if (disposed) stop();
@@ -97,80 +298,7 @@ export function App({
       disposed = true;
       unsubscribe?.();
     };
-  }, [client, project]);
-
-  const saveDocument = useCallback(
-    (path: string): Promise<void> => {
-      if (!project) return Promise.resolve();
-      const previous = saveQueues.current.get(path) ?? Promise.resolve();
-      const queued = previous
-        .catch(() => undefined)
-        .then(async () => {
-          const snapshot = documentsRef.current[path];
-          if (!snapshot || snapshot.revision <= snapshot.savedRevision) return;
-          const revision = snapshot.revision;
-          const expectedFingerprint = snapshot.fingerprint;
-          const text = snapshot.state.doc.toString();
-          setDocuments((current) =>
-            current[path]
-              ? {
-                  ...current,
-                  [path]: {
-                    ...current[path],
-                    saveStatus: "saving",
-                    saveError: undefined,
-                  },
-                }
-              : current,
-          );
-          try {
-            const result = await client.writeTextFile(
-              project.projectId,
-              path,
-              text,
-              expectedFingerprint,
-            );
-            setDocuments((current) => {
-              const latest = current[path];
-              if (!latest || latest.fingerprint !== expectedFingerprint)
-                return current;
-              const savedRevision = Math.max(latest.savedRevision, revision);
-              return {
-                ...current,
-                [path]: {
-                  ...latest,
-                  fingerprint: result.fingerprint,
-                  savedRevision,
-                  saveStatus:
-                    latest.revision > savedRevision ? "dirty" : "clean",
-                  saveError: undefined,
-                },
-              };
-            });
-          } catch (reason) {
-            setDocuments((current) =>
-              current[path]
-                ? {
-                    ...current,
-                    [path]: {
-                      ...current[path],
-                      saveStatus: "error",
-                      saveError: errorMessage(reason),
-                    },
-                  }
-                : current,
-            );
-          }
-        });
-      saveQueues.current.set(path, queued);
-      void queued.finally(() => {
-        if (saveQueues.current.get(path) === queued)
-          saveQueues.current.delete(path);
-      });
-      return queued;
-    },
-    [client, project],
-  );
+  }, [client, project, reconcileExternalDocument]);
 
   useEffect(() => {
     for (const [path, document] of Object.entries(documents)) {
@@ -197,7 +325,9 @@ export function App({
     const beforeUnload = (event: BeforeUnloadEvent) => {
       if (
         Object.values(documentsRef.current).some(
-          (document) => document.revision > document.savedRevision,
+          (document) =>
+            document.revision > document.savedRevision ||
+            document.saveStatus === "conflict",
         )
       )
         event.preventDefault();
@@ -213,7 +343,9 @@ export function App({
   async function openProject() {
     if (
       Object.values(documents).some(
-        (document) => document.revision > document.savedRevision,
+        (document) =>
+          document.revision > document.savedRevision ||
+          document.saveStatus === "conflict",
       ) &&
       !window.confirm("Discard unsaved changes and open another project?")
     )
@@ -262,30 +394,7 @@ export function App({
     }
     try {
       const loaded = await client.readTextFile(project.projectId, path);
-      const state = createLatexEditorState(
-        loaded.text,
-        (next, changed) => {
-          setDocuments((current) => {
-            const document = current[path];
-            return document
-              ? {
-                  ...current,
-                  [path]: {
-                    ...document,
-                    state: next,
-                    revision: changed
-                      ? document.revision + 1
-                      : document.revision,
-                    saveStatus: changed ? "dirty" : document.saveStatus,
-                  },
-                }
-              : current;
-          });
-        },
-        () => {
-          void saveDocument(path);
-        },
-      );
+      const state = makeEditorState(path, loaded.text);
       setDocuments((current) => ({
         ...current,
         [path]: {
@@ -296,6 +405,8 @@ export function App({
           savedRevision: 0,
           saveStatus: "clean",
           saveError: undefined,
+          generation: 0,
+          conflict: undefined,
         },
       }));
       setActivePath(path);
@@ -304,11 +415,119 @@ export function App({
     }
   }
 
+  async function reloadDocumentFromDisk(path: string) {
+    if (!project) return;
+    try {
+      const disk = await client.readTextFile(project.projectId, path);
+      setDocuments((current) => {
+        const document = current[path];
+        if (!document) return current;
+        const revision = document.revision + 1;
+        return {
+          ...current,
+          [path]: {
+            ...document,
+            fingerprint: disk.fingerprint,
+            state: makeEditorState(path, disk.text),
+            revision,
+            savedRevision: revision,
+            saveStatus: "clean",
+            saveError: undefined,
+            generation: document.generation + 1,
+            conflict: undefined,
+          },
+        };
+      });
+    } catch (reason) {
+      setDocuments((current) =>
+        current[path]
+          ? {
+              ...current,
+              [path]: {
+                ...current[path],
+                saveStatus: "conflict",
+                conflict: {
+                  disk: undefined,
+                  message: errorMessage(reason),
+                  comparing: false,
+                },
+              },
+            }
+          : current,
+      );
+    }
+  }
+
+  async function overwriteDiskWithDocument(path: string) {
+    if (!project) return;
+    const snapshot = documentsRef.current[path];
+    if (!snapshot?.conflict) return;
+    try {
+      const fresh = await client.readTextFile(project.projectId, path);
+      const result = await client.writeTextFile(
+        project.projectId,
+        path,
+        snapshot.state.doc.toString(),
+        fresh.fingerprint,
+      );
+      setDocuments((current) => {
+        const document = current[path];
+        if (!document) return current;
+        const savedRevision = snapshot.revision;
+        return {
+          ...current,
+          [path]: {
+            ...document,
+            fingerprint: result.fingerprint,
+            savedRevision,
+            saveStatus: document.revision > savedRevision ? "dirty" : "clean",
+            saveError: undefined,
+            conflict: undefined,
+          },
+        };
+      });
+    } catch (reason) {
+      setDocuments((current) =>
+        current[path]
+          ? {
+              ...current,
+              [path]: {
+                ...current[path],
+                saveStatus: "conflict",
+                conflict: {
+                  disk: current[path].conflict?.disk,
+                  message: `Overwrite aborted: ${errorMessage(reason)}`,
+                  comparing: current[path].conflict?.comparing ?? false,
+                },
+              },
+            }
+          : current,
+      );
+    }
+  }
+
+  function toggleComparison(path: string) {
+    setDocuments((current) => {
+      const document = current[path];
+      if (!document?.conflict) return current;
+      return {
+        ...current,
+        [path]: {
+          ...document,
+          conflict: {
+            ...document.conflict,
+            comparing: !document.conflict.comparing,
+          },
+        },
+      };
+    });
+  }
   function closeDocument(path: string) {
     const document = documents[path];
     if (
       document &&
-      document.revision > document.savedRevision &&
+      (document.revision > document.savedRevision ||
+        document.saveStatus === "conflict") &&
       !window.confirm(`Discard unsaved changes to ${path}?`)
     )
       return;
@@ -402,7 +621,11 @@ export function App({
                   onClick={() => setActivePath(document.path)}
                 >
                   {document.path.split("/").at(-1)}
-                  {document.revision > document.savedRevision ? " •" : ""}
+                  {document.saveStatus === "conflict"
+                    ? " !"
+                    : document.revision > document.savedRevision
+                      ? " •"
+                      : ""}
                 </button>
                 <button
                   type="button"
@@ -419,7 +642,10 @@ export function App({
               <button
                 type="button"
                 onClick={() => void saveDocument(activePath)}
-                disabled={documents[activePath].saveStatus === "saving"}
+                disabled={
+                  documents[activePath].saveStatus === "saving" ||
+                  documents[activePath].saveStatus === "conflict"
+                }
               >
                 Save
               </button>
@@ -430,8 +656,58 @@ export function App({
               </span>
             </div>
           ) : null}
+          {activePath && documents[activePath]?.conflict ? (
+            <section className="conflict-banner" role="alert">
+              <div>
+                <strong>External change detected</strong>
+                <p>{documents[activePath].conflict.message}</p>
+              </div>
+              <div className="conflict-actions">
+                <button
+                  type="button"
+                  onClick={() => toggleComparison(activePath)}
+                >
+                  {documents[activePath].conflict.comparing
+                    ? "Hide comparison"
+                    : "Compare"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void reloadDocumentFromDisk(activePath)}
+                  disabled={!documents[activePath].conflict.disk}
+                >
+                  Reload disk version
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void overwriteDiskWithDocument(activePath)}
+                  disabled={!documents[activePath].conflict.disk}
+                >
+                  Overwrite with my version
+                </button>
+              </div>
+              {documents[activePath].conflict.comparing ? (
+                <div className="conflict-comparison">
+                  <section>
+                    <h2>Your buffer</h2>
+                    <pre>{documents[activePath].state.doc.toString()}</pre>
+                  </section>
+                  <section>
+                    <h2>Disk version</h2>
+                    <pre>
+                      {documents[activePath].conflict.disk?.text ??
+                        "File is unavailable."}
+                    </pre>
+                  </section>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
           {activePath && documents[activePath] ? (
-            <CodeEditor key={activePath} state={documents[activePath].state} />
+            <CodeEditor
+              key={`${activePath}:${documents[activePath].generation}`}
+              state={documents[activePath].state}
+            />
           ) : (
             <p>Select a text file to begin editing.</p>
           )}
@@ -513,6 +789,14 @@ function without(values: Set<string>, value: string): Set<string> {
   return next;
 }
 
+function errorCode(reason: unknown): string | undefined {
+  return typeof reason === "object" &&
+    reason &&
+    "code" in reason &&
+    typeof reason.code === "string"
+    ? reason.code
+    : undefined;
+}
 function errorMessage(reason: unknown): string {
   if (
     typeof reason === "object" &&

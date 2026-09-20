@@ -19,7 +19,10 @@
 - C3: implemented with recursive native watching, 100 ms event coalescing,
   normalized create/modify/remove/rename/rescan events, tree refresh, and
   fingerprint-based self-write correlation.
-- Next: C4 external-change conflict handling.
+- C4: implemented with automatic reload for clean buffers, conflict blocking for
+  dirty buffers, side-by-side comparison, explicit disk reload, and overwrite
+  only after refreshing the disk fingerprint.
+- Next: C5 root-document candidate detection.
 
 The authoritative sequence is:
 
