@@ -56,8 +56,8 @@ input {
   border-right: 0;
 }
 .editor-pane {
-  display: grid;
-  grid-template-rows: auto auto 1fr;
+  display: flex;
+  flex-direction: column;
   min-height: 0;
   padding: 0;
 }
@@ -116,6 +116,7 @@ input {
   color: #eef2f5;
 }
 .code-editor {
+  flex: 1;
   min-height: 0;
   overflow: hidden;
 }
@@ -270,4 +271,71 @@ input {
   color: #d2a75a;
   font-size: 0.75rem;
   margin: 0;
+}
+
+.recovery-list {
+  background: #17231d;
+  border: 1px solid #355c45;
+  border-radius: 5px;
+  display: grid;
+  gap: 5px;
+  margin: 0 0 12px;
+  padding: 8px;
+}
+.recovery-list h3 {
+  color: #b9dec5;
+  font-size: 0.75rem;
+  margin: 0;
+  text-transform: uppercase;
+}
+.recovery-list button,
+.recovery-actions button,
+.recovery-review-heading button {
+  background: #233a2c;
+  border: 1px solid #467257;
+  border-radius: 4px;
+  color: #e1f1e6;
+  cursor: pointer;
+  text-align: left;
+}
+.recovery-review {
+  background: #17231d;
+  border-bottom: 1px solid #355c45;
+  color: #dce9e0;
+  padding: 10px 12px;
+}
+.recovery-review-heading,
+.recovery-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+.recovery-comparison {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+  margin: 8px 0;
+  max-height: 30vh;
+  overflow: auto;
+}
+.recovery-comparison h2 {
+  font-size: 0.75rem;
+  margin: 0 0 4px;
+}
+.recovery-comparison pre {
+  background: #101418;
+  border: 1px solid #355c45;
+  margin: 0;
+  min-height: 5rem;
+  overflow: auto;
+  padding: 8px;
+  white-space: pre-wrap;
+}
+.recovery-actions {
+  justify-content: flex-end;
+}
+.recovery-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }

@@ -1,6 +1,6 @@
 mod api;
 
-use cryptex_core::{project::ProjectService, settings::RootPreferences};
+use cryptex_core::{project::ProjectService, recovery::RecoveryService, settings::RootPreferences};
 use std::{collections::HashMap, sync::Mutex};
 use tauri::Manager;
 
@@ -13,6 +13,9 @@ pub fn run() {
         .setup(|app| {
             let settings = app.path().app_config_dir()?.join("root-documents.json");
             app.manage(Mutex::new(RootPreferences::load(settings)?));
+            app.manage(RecoveryService::new(
+                app.path().app_data_dir()?.join("recovery"),
+            ));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -22,7 +25,10 @@ pub fn run() {
             api::read_text_file,
             api::write_text_file,
             api::detect_root_documents,
-            api::set_root_document
+            api::set_root_document,
+            api::store_recovery_snapshot,
+            api::list_recovery_snapshots,
+            api::delete_recovery_snapshot
         ])
         .run(tauri::generate_context!())
         .expect("failed to run CrypTex");

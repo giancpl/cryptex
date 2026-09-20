@@ -149,6 +149,29 @@ pub enum RootDocumentReason {
     IncludesFiles,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
+pub struct RecoveryInventory {
+    pub api_version: u16,
+    pub snapshots: Vec<RecoverySnapshot>,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
+pub struct RecoverySnapshot {
+    pub api_version: u16,
+    pub snapshot_version: u16,
+    pub project_id: String,
+    pub relative_path: String,
+    pub text: String,
+    pub base_fingerprint: String,
+    pub revision: u64,
+    pub updated_at_ms: u64,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

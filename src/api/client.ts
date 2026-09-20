@@ -3,6 +3,8 @@ import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { FileTreePage } from "../bindings/FileTreePage";
 import type { HealthResponse } from "../bindings/HealthResponse";
+import type { RecoveryInventory } from "../bindings/RecoveryInventory";
+import type { RecoverySnapshot } from "../bindings/RecoverySnapshot";
 import type { RootDocumentCandidates } from "../bindings/RootDocumentCandidates";
 import type { ProjectSummary } from "../bindings/ProjectSummary";
 import type { ProjectFileChange } from "../bindings/ProjectFileChange";
@@ -30,6 +32,23 @@ export interface BackendClient {
     projectId: string,
     relativePath: string,
   ): Promise<RootDocumentCandidates>;
+  storeRecoverySnapshot(
+    this: void,
+    projectId: string,
+    relativePath: string,
+    text: string,
+    baseFingerprint: string,
+    revision: number,
+  ): Promise<RecoverySnapshot>;
+  listRecoverySnapshots(
+    this: void,
+    projectId: string,
+  ): Promise<RecoveryInventory>;
+  deleteRecoverySnapshot(
+    this: void,
+    projectId: string,
+    relativePath: string,
+  ): Promise<void>;
   onProjectFileChange(
     listener: (change: ProjectFileChange) => void,
   ): Promise<() => void>;
@@ -56,6 +75,24 @@ export const backendClient: BackendClient = {
       projectId,
       relativePath,
     }),
+  storeRecoverySnapshot: (
+    projectId,
+    relativePath,
+    text,
+    baseFingerprint,
+    revision,
+  ) =>
+    invoke<RecoverySnapshot>("store_recovery_snapshot", {
+      projectId,
+      relativePath,
+      text,
+      baseFingerprint,
+      revision,
+    }),
+  listRecoverySnapshots: (projectId) =>
+    invoke<RecoveryInventory>("list_recovery_snapshots", { projectId }),
+  deleteRecoverySnapshot: (projectId, relativePath) =>
+    invoke<void>("delete_recovery_snapshot", { projectId, relativePath }),
   onProjectFileChange: (listener) =>
     listen<ProjectFileChange>("project-file-change", (event) =>
       listener(event.payload),

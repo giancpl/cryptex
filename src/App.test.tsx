@@ -69,6 +69,7 @@ describe("App", () => {
       setRootDocument: vi
         .fn()
         .mockResolvedValue(rootCandidates("a".repeat(64))),
+      ...recoveryMocks(),
       onProjectFileChange: vi.fn().mockResolvedValue(() => undefined),
     };
     render(
@@ -268,6 +269,73 @@ describe("App", () => {
       expect(screen.getByLabelText("Root document")).toHaveValue("notes.tex"),
     );
   });
+
+  it("requires review before restoring a snapshot and removes it after save", async () => {
+    const projectId = "9".repeat(64);
+    const disk = {
+      apiVersion: 1,
+      relativePath: "main.tex",
+      text: "disk version",
+      fingerprint: "4".repeat(64),
+      sizeBytes: 12,
+    };
+    const recovered = {
+      apiVersion: 1,
+      snapshotVersion: 1,
+      projectId,
+      relativePath: "main.tex",
+      text: "recovered draft",
+      baseFingerprint: "3".repeat(64),
+      revision: 4n,
+      updatedAtMs: 10n,
+    };
+    const client = conflictClient(
+      projectId,
+      vi.fn().mockResolvedValue(disk),
+      () => undefined,
+    );
+    client.listRecoverySnapshots = vi.fn().mockResolvedValue({
+      apiVersion: 1,
+      snapshots: [recovered],
+      warnings: [],
+    });
+    render(
+      <App client={client} pickDirectory={() => Promise.resolve("/paper")} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open folder" }));
+
+    const review = await screen.findByRole("button", {
+      name: "Review main.tex",
+    });
+    expect(screen.queryByText("recovered draft")).toBeNull();
+    fireEvent.click(review);
+    expect(await screen.findByText("Recovered buffer")).toBeVisible();
+    expect(screen.getByText("recovered draft")).toBeVisible();
+    expect(screen.getByText("disk version")).toBeVisible();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Restore reviewed buffer" }),
+    );
+    await waitFor(() =>
+      expect(document.querySelector(".cm-content")).toHaveTextContent(
+        "recovered draft",
+      ),
+    );
+    await waitFor(
+      () => expect(client.storeRecoverySnapshot).toHaveBeenCalled(),
+      {
+        timeout: 1_000,
+      },
+    );
+    await waitFor(
+      () =>
+        expect(client.deleteRecoverySnapshot).toHaveBeenCalledWith(
+          projectId,
+          "main.tex",
+        ),
+      { timeout: 1_500 },
+    );
+  });
 });
 
 function conflictClient(
@@ -308,6 +376,7 @@ function conflictClient(
     }),
     detectRootDocuments: vi.fn().mockResolvedValue(rootCandidates(projectId)),
     setRootDocument: vi.fn().mockResolvedValue(rootCandidates(projectId)),
+    ...recoveryMocks(),
     onProjectFileChange: vi
       .fn()
       .mockImplementation((listener: (change: ProjectFileChange) => void) => {
@@ -328,5 +397,36 @@ function rootCandidates(projectId: string) {
       },
     ],
     selected: "main.tex",
+  };
+}
+
+function recoveryMocks() {
+  return {
+    storeRecoverySnapshot: vi
+      .fn()
+      .mockImplementation(
+        (
+          projectId: string,
+          relativePath: string,
+          text: string,
+          baseFingerprint: string,
+          revision: number,
+        ) =>
+          Promise.resolve({
+            apiVersion: 1,
+            projectId,
+            relativePath,
+            text,
+            baseFingerprint,
+            revision: BigInt(revision),
+            updatedAtMs: 1n,
+          }),
+      ),
+    listRecoverySnapshots: vi.fn().mockResolvedValue({
+      apiVersion: 1,
+      snapshots: [],
+      warnings: [],
+    }),
+    deleteRecoverySnapshot: vi.fn().mockResolvedValue(undefined),
   };
 }

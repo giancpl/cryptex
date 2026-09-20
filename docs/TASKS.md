@@ -25,7 +25,10 @@
 - C5: implemented with bounded deterministic root detection, magic-comment and
   document-class evidence, explicit multi-root selection, and atomic per-project
   preferences stored in the user configuration directory.
-- Next: C6 crash-recovery snapshots.
+- C6: implemented with versioned atomic recovery snapshots outside projects,
+  restart discovery, corrupt-snapshot warnings, explicit side-by-side review,
+  restore, and cleanup after confirmed save or discard.
+- Next: D1 managed TeX distribution and packaging spike.
 
 The authoritative sequence is:
 

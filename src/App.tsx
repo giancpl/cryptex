@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { EditorState } from "@codemirror/state";
 import type { FileTreeEntry } from "./bindings/FileTreeEntry";
 import type { FileTreePage } from "./bindings/FileTreePage";
+import type { RecoveryInventory } from "./bindings/RecoveryInventory";
+import type { RecoverySnapshot } from "./bindings/RecoverySnapshot";
 import type { RootDocumentCandidates } from "./bindings/RootDocumentCandidates";
 import type { ProjectSummary } from "./bindings/ProjectSummary";
 import type { TextDocument } from "./bindings/TextDocument";
@@ -51,11 +53,19 @@ export function App({
   const [busy, setBusy] = useState(false);
   const [documents, setDocuments] = useState<Record<string, OpenDocument>>({});
   const [activePath, setActivePath] = useState<string | null>(null);
+  const [recoveryInventory, setRecoveryInventory] =
+    useState<RecoveryInventory | null>(null);
+  const [reviewingRecovery, setReviewingRecovery] =
+    useState<RecoverySnapshot | null>(null);
+  const [recoveryDisk, setRecoveryDisk] = useState<TextDocument | null>(null);
   const [rootDocuments, setRootDocuments] =
     useState<RootDocumentCandidates | null>(null);
   const documentsRef = useRef(documents);
   const directoriesRef = useRef(directories);
   const saveQueues = useRef(new Map<string, Promise<void>>());
+  const recoveryTimers = useRef(
+    new Map<string, { revision: number; timer: number }>(),
+  );
   const autosaveTimers = useRef(
     new Map<string, { revision: number; timer: number }>(),
   );
@@ -104,6 +114,23 @@ export function App({
               text,
               expectedFingerprint,
             );
+            if (documentsRef.current[path]?.revision === revision) {
+              try {
+                await client.deleteRecoverySnapshot(project.projectId, path);
+                setRecoveryInventory((current) =>
+                  current
+                    ? {
+                        ...current,
+                        snapshots: current.snapshots.filter(
+                          (snapshot) => snapshot.relativePath !== path,
+                        ),
+                      }
+                    : current,
+                );
+              } catch (reason) {
+                setError(errorMessage(reason));
+              }
+            }
             setDocuments((current) => {
               const latest = current[path];
               if (
@@ -328,7 +355,69 @@ export function App({
   }, [documents, saveDocument]);
 
   useEffect(() => {
+    if (!project) return;
+    for (const [path, document] of Object.entries(documents)) {
+      const scheduled = recoveryTimers.current.get(path);
+      if (document.revision <= document.savedRevision) {
+        if (scheduled) window.clearTimeout(scheduled.timer);
+        recoveryTimers.current.delete(path);
+        continue;
+      }
+      if (scheduled?.revision === document.revision) continue;
+      if (scheduled) window.clearTimeout(scheduled.timer);
+      const revision = document.revision;
+      const text = document.state.doc.toString();
+      const fingerprint = document.fingerprint;
+      const timer = window.setTimeout(() => {
+        recoveryTimers.current.delete(path);
+        void client
+          .storeRecoverySnapshot(
+            project.projectId,
+            path,
+            text,
+            fingerprint,
+            revision,
+          )
+          .then(async (snapshot) => {
+            const currentDocument = documentsRef.current[path];
+            if (
+              !currentDocument ||
+              currentDocument.revision !== revision ||
+              currentDocument.revision <= currentDocument.savedRevision
+            ) {
+              await client.deleteRecoverySnapshot(project.projectId, path);
+              return;
+            }
+            setRecoveryInventory((current) => {
+              const snapshots = [
+                ...(current?.snapshots.filter(
+                  (candidate) => candidate.relativePath !== path,
+                ) ?? []),
+                snapshot,
+              ].sort((left, right) =>
+                left.updatedAtMs < right.updatedAtMs ? 1 : -1,
+              );
+              return {
+                apiVersion: snapshot.apiVersion,
+                snapshots,
+                warnings: current?.warnings ?? [],
+              };
+            });
+          })
+          .catch((reason: unknown) => setError(errorMessage(reason)));
+      }, 250);
+      recoveryTimers.current.set(path, { revision, timer });
+    }
+    for (const [path, scheduled] of recoveryTimers.current) {
+      if (!documents[path]) {
+        window.clearTimeout(scheduled.timer);
+        recoveryTimers.current.delete(path);
+      }
+    }
+  }, [client, documents, project]);
+  useEffect(() => {
     const timers = autosaveTimers.current;
+    const recovery = recoveryTimers.current;
     const beforeUnload = (event: BeforeUnloadEvent) => {
       if (
         Object.values(documentsRef.current).some(
@@ -343,6 +432,8 @@ export function App({
     return () => {
       window.removeEventListener("beforeunload", beforeUnload);
       for (const scheduled of timers.values())
+        window.clearTimeout(scheduled.timer);
+      for (const scheduled of recovery.values())
         window.clearTimeout(scheduled.timer);
     };
   }, []);
@@ -363,13 +454,16 @@ export function App({
     setError(null);
     try {
       const opened = await client.openProject(selected);
-      const [root, detectedRoots] = await Promise.all([
+      const [root, detectedRoots, recoveries] = await Promise.all([
         client.listDirectory(opened.projectId, ""),
         client.detectRootDocuments(opened.projectId),
+        client.listRecoverySnapshots(opened.projectId),
       ]);
       setProject(opened);
       setDirectories({ "": root });
       setRootDocuments(detectedRoots);
+      setRecoveryInventory(recoveries);
+      setReviewingRecovery(null);
       setExpanded(new Set([""]));
       setDocuments({});
       setActivePath(null);
@@ -380,6 +474,73 @@ export function App({
     }
   }
 
+  async function reviewRecovery(snapshot: RecoverySnapshot) {
+    if (!project) return;
+    setReviewingRecovery(snapshot);
+    setRecoveryDisk(null);
+    try {
+      setRecoveryDisk(
+        await client.readTextFile(project.projectId, snapshot.relativePath),
+      );
+    } catch (reason) {
+      setError(`Recovery source is unavailable: ${errorMessage(reason)}`);
+    }
+  }
+
+  function restoreRecovery(snapshot: RecoverySnapshot) {
+    if (!project || !recoveryDisk) return;
+    const current = documentsRef.current[snapshot.relativePath];
+    if (
+      current &&
+      (current.revision > current.savedRevision || current.conflict) &&
+      !window.confirm(
+        `Replace the current unsaved buffer for ${snapshot.relativePath} with the reviewed recovery copy?`,
+      )
+    )
+      return;
+    const revision = (current?.revision ?? 0) + 1;
+    setDocuments((documents) => ({
+      ...documents,
+      [snapshot.relativePath]: {
+        path: snapshot.relativePath,
+        fingerprint: recoveryDisk.fingerprint,
+        state: makeEditorState(snapshot.relativePath, snapshot.text),
+        revision,
+        savedRevision: revision - 1,
+        saveStatus: "dirty",
+        saveError: undefined,
+        generation: (current?.generation ?? 0) + 1,
+        conflict: undefined,
+      },
+    }));
+    setActivePath(snapshot.relativePath);
+    setReviewingRecovery(null);
+    setRecoveryDisk(null);
+  }
+
+  async function discardRecovery(snapshot: RecoverySnapshot) {
+    if (!project) return;
+    try {
+      await client.deleteRecoverySnapshot(
+        project.projectId,
+        snapshot.relativePath,
+      );
+      setRecoveryInventory((current) =>
+        current
+          ? {
+              ...current,
+              snapshots: current.snapshots.filter(
+                (candidate) => candidate.relativePath !== snapshot.relativePath,
+              ),
+            }
+          : current,
+      );
+      setReviewingRecovery(null);
+      setRecoveryDisk(null);
+    } catch (reason) {
+      setError(errorMessage(reason));
+    }
+  }
   async function selectRootDocument(relativePath: string) {
     if (!project || !relativePath) return;
     try {
@@ -554,6 +715,23 @@ export function App({
       !window.confirm(`Discard unsaved changes to ${path}?`)
     )
       return;
+    if (project) {
+      void client
+        .deleteRecoverySnapshot(project.projectId, path)
+        .then(() =>
+          setRecoveryInventory((current) =>
+            current
+              ? {
+                  ...current,
+                  snapshots: current.snapshots.filter(
+                    (snapshot) => snapshot.relativePath !== path,
+                  ),
+                }
+              : current,
+          ),
+        )
+        .catch((reason: unknown) => setError(errorMessage(reason)));
+    }
     setDocuments((current) => {
       const next = { ...current };
       delete next[path];
@@ -624,6 +802,30 @@ export function App({
                   ) : null}
                 </div>
               ) : null}
+              {recoveryInventory &&
+              (recoveryInventory.snapshots.length > 0 ||
+                recoveryInventory.warnings.length > 0) ? (
+                <section
+                  className="recovery-list"
+                  aria-labelledby="recovery-title"
+                >
+                  <h3 id="recovery-title">Recovery</h3>
+                  {recoveryInventory.warnings.map((warning, index) => (
+                    <p role="alert" key={`${warning}:${index}`}>
+                      {warning}
+                    </p>
+                  ))}
+                  {recoveryInventory.snapshots.map((snapshot) => (
+                    <button
+                      type="button"
+                      key={snapshot.relativePath}
+                      onClick={() => void reviewRecovery(snapshot)}
+                    >
+                      Review {snapshot.relativePath}
+                    </button>
+                  ))}
+                </section>
+              ) : null}
               <div className="tree-options">
                 <label>
                   <input
@@ -660,6 +862,53 @@ export function App({
           <h1 id="pane-editor" className="visually-hidden">
             Editor
           </h1>
+          {reviewingRecovery ? (
+            <section
+              className="recovery-review"
+              aria-labelledby="recovery-review-title"
+            >
+              <div className="recovery-review-heading">
+                <strong id="recovery-review-title">
+                  Review recovery: {reviewingRecovery.relativePath}
+                </strong>
+                <button
+                  type="button"
+                  aria-label="Close recovery review"
+                  onClick={() => {
+                    setReviewingRecovery(null);
+                    setRecoveryDisk(null);
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+              <div className="recovery-comparison">
+                <section>
+                  <h2>Recovered buffer</h2>
+                  <pre>{reviewingRecovery.text}</pre>
+                </section>
+                <section>
+                  <h2>Current disk version</h2>
+                  <pre>{recoveryDisk?.text ?? "File is unavailable."}</pre>
+                </section>
+              </div>
+              <div className="recovery-actions">
+                <button
+                  type="button"
+                  disabled={!recoveryDisk}
+                  onClick={() => restoreRecovery(reviewingRecovery)}
+                >
+                  Restore reviewed buffer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void discardRecovery(reviewingRecovery)}
+                >
+                  Discard recovery copy
+                </button>
+              </div>
+            </section>
+          ) : null}
           <div
             className="editor-tabs"
             role="tablist"

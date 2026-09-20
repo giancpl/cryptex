@@ -1,9 +1,10 @@
 use cryptex_core::{
     api::{
-        API_VERSION, ApiError, FileTreePage, HealthResponse, ProjectSummary,
-        RootDocumentCandidates, TextDocument, WriteResult,
+        API_VERSION, ApiError, FileTreePage, HealthResponse, ProjectSummary, RecoveryInventory,
+        RecoverySnapshot, RootDocumentCandidates, TextDocument, WriteResult,
     },
     project::{ProjectError, ProjectService},
+    recovery::{RecoveryError, RecoveryService},
     settings::{RootPreferences, SettingsError},
     watcher::ProjectWatcher,
 };
@@ -156,6 +157,54 @@ pub fn set_root_document(
         .map_err(project_error)
 }
 
+#[tauri::command(rename_all = "camelCase")]
+pub fn store_recovery_snapshot(
+    project_id: String,
+    relative_path: String,
+    text: String,
+    base_fingerprint: String,
+    revision: u64,
+    recovery: State<'_, RecoveryService>,
+) -> Result<RecoverySnapshot, ApiError> {
+    recovery
+        .store(
+            &project_id,
+            &relative_path,
+            &text,
+            &base_fingerprint,
+            revision,
+        )
+        .map_err(recovery_error)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn list_recovery_snapshots(
+    project_id: String,
+    recovery: State<'_, RecoveryService>,
+) -> Result<RecoveryInventory, ApiError> {
+    recovery.list(&project_id).map_err(recovery_error)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn delete_recovery_snapshot(
+    project_id: String,
+    relative_path: String,
+    recovery: State<'_, RecoveryService>,
+) -> Result<(), ApiError> {
+    recovery
+        .delete(&project_id, &relative_path)
+        .map_err(recovery_error)
+}
+
+fn recovery_error(error: RecoveryError) -> ApiError {
+    let retryable = matches!(&error, RecoveryError::Io(_));
+    ApiError {
+        api_version: API_VERSION,
+        code: "RECOVERY_ERROR".to_owned(),
+        message: error.to_string(),
+        retryable,
+    }
+}
 fn settings_error(error: SettingsError) -> ApiError {
     let retryable = matches!(&error, SettingsError::Io(_));
     ApiError {
