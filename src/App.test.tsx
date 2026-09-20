@@ -63,15 +63,19 @@ describe("App", () => {
       listDirectory,
       readTextFile,
       writeTextFile,
+      detectRootDocuments: vi
+        .fn()
+        .mockResolvedValue(rootCandidates("a".repeat(64))),
+      setRootDocument: vi
+        .fn()
+        .mockResolvedValue(rootCandidates("a".repeat(64))),
       onProjectFileChange: vi.fn().mockResolvedValue(() => undefined),
     };
     render(
       <App client={client} pickDirectory={() => Promise.resolve("/paper")} />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Open folder" }));
-    await waitFor(() =>
-      expect(screen.getByText("main.tex")).toBeInTheDocument(),
-    );
+    await screen.findByRole("button", { name: /main\.tex/ });
     expect(openProject).toHaveBeenCalledWith("/paper");
     expect(listDirectory).toHaveBeenCalledWith("a".repeat(64), "");
     fireEvent.click(screen.getByRole("button", { name: /main\.tex/ }));
@@ -130,7 +134,7 @@ describe("App", () => {
       <App client={client} pickDirectory={() => Promise.resolve("/paper")} />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Open folder" }));
-    await screen.findByText("main.tex");
+    await screen.findByRole("button", { name: /main\.tex/ });
     fireEvent.click(screen.getByRole("button", { name: /main\.tex/ }));
     await waitFor(() =>
       expect(document.querySelector(".cm-content")).toHaveTextContent(
@@ -182,7 +186,7 @@ describe("App", () => {
       <App client={client} pickDirectory={() => Promise.resolve("/paper")} />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Open folder" }));
-    await screen.findByText("main.tex");
+    await screen.findByRole("button", { name: /main\.tex/ });
     fireEvent.click(screen.getByRole("button", { name: /main\.tex/ }));
     const content = await waitFor(() => {
       const element = document.querySelector<HTMLElement>(".cm-content");
@@ -224,6 +228,46 @@ describe("App", () => {
       expect(screen.queryByText("External change detected")).toBeNull(),
     );
   });
+
+  it("prompts for an ambiguous root and persists the explicit selection", async () => {
+    const projectId = "d".repeat(64);
+    const readTextFile = vi.fn();
+    const client = conflictClient(projectId, readTextFile, () => undefined);
+    const ambiguous = {
+      apiVersion: 1,
+      candidates: [
+        { relativePath: "main.tex", reasons: ["documentClass" as const] },
+        { relativePath: "notes.tex", reasons: ["documentClass" as const] },
+      ],
+      selected: null,
+    };
+    client.detectRootDocuments = vi.fn().mockResolvedValue(ambiguous);
+    client.setRootDocument = vi.fn().mockResolvedValue({
+      ...ambiguous,
+      selected: "notes.tex",
+    });
+    render(
+      <App client={client} pickDirectory={() => Promise.resolve("/paper")} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open folder" }));
+
+    expect(
+      await screen.findByText(/Multiple root documents were found/),
+    ).toBeVisible();
+    fireEvent.change(screen.getByLabelText("Root document"), {
+      target: { value: "notes.tex" },
+    });
+
+    await waitFor(() =>
+      expect(client.setRootDocument).toHaveBeenCalledWith(
+        projectId,
+        "notes.tex",
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText("Root document")).toHaveValue("notes.tex"),
+    );
+  });
 });
 
 function conflictClient(
@@ -262,11 +306,27 @@ function conflictClient(
       fingerprint: "3".repeat(64),
       sizeBytes: 7,
     }),
+    detectRootDocuments: vi.fn().mockResolvedValue(rootCandidates(projectId)),
+    setRootDocument: vi.fn().mockResolvedValue(rootCandidates(projectId)),
     onProjectFileChange: vi
       .fn()
       .mockImplementation((listener: (change: ProjectFileChange) => void) => {
         capture(listener);
         return Promise.resolve(() => undefined);
       }),
+  };
+}
+
+function rootCandidates(projectId: string) {
+  void projectId;
+  return {
+    apiVersion: 1,
+    candidates: [
+      {
+        relativePath: "main.tex",
+        reasons: ["documentClass" as const],
+      },
+    ],
+    selected: "main.tex",
   };
 }

@@ -22,7 +22,10 @@
 - C4: implemented with automatic reload for clean buffers, conflict blocking for
   dirty buffers, side-by-side comparison, explicit disk reload, and overwrite
   only after refreshing the disk fingerprint.
-- Next: C5 root-document candidate detection.
+- C5: implemented with bounded deterministic root detection, magic-comment and
+  document-class evidence, explicit multi-root selection, and atomic per-project
+  preferences stored in the user configuration directory.
+- Next: C6 crash-recovery snapshots.
 
 The authoritative sequence is:
 

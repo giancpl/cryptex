@@ -122,6 +122,33 @@ pub enum ProjectFileChangeKind {
     Rescan,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
+pub struct RootDocumentCandidates {
+    pub api_version: u16,
+    pub candidates: Vec<RootDocumentCandidate>,
+    pub selected: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
+pub struct RootDocumentCandidate {
+    pub relative_path: String,
+    pub reasons: Vec<RootDocumentReason>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
+pub enum RootDocumentReason {
+    Preferred,
+    MagicRoot,
+    DocumentClass,
+    IncludesFiles,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

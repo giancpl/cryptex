@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { EditorState } from "@codemirror/state";
 import type { FileTreeEntry } from "./bindings/FileTreeEntry";
 import type { FileTreePage } from "./bindings/FileTreePage";
+import type { RootDocumentCandidates } from "./bindings/RootDocumentCandidates";
 import type { ProjectSummary } from "./bindings/ProjectSummary";
 import type { TextDocument } from "./bindings/TextDocument";
 import {
@@ -50,6 +51,8 @@ export function App({
   const [busy, setBusy] = useState(false);
   const [documents, setDocuments] = useState<Record<string, OpenDocument>>({});
   const [activePath, setActivePath] = useState<string | null>(null);
+  const [rootDocuments, setRootDocuments] =
+    useState<RootDocumentCandidates | null>(null);
   const documentsRef = useRef(documents);
   const directoriesRef = useRef(directories);
   const saveQueues = useRef(new Map<string, Promise<void>>());
@@ -264,6 +267,10 @@ export function App({
           change.selfWrite
         )
           return;
+        void client
+          .detectRootDocuments(project.projectId)
+          .then(setRootDocuments)
+          .catch((reason: unknown) => setError(errorMessage(reason)));
         const loadedDirectories = Object.keys(directoriesRef.current);
         void Promise.all(
           loadedDirectories.map((path) =>
@@ -356,9 +363,13 @@ export function App({
     setError(null);
     try {
       const opened = await client.openProject(selected);
-      const root = await client.listDirectory(opened.projectId, "");
+      const [root, detectedRoots] = await Promise.all([
+        client.listDirectory(opened.projectId, ""),
+        client.detectRootDocuments(opened.projectId),
+      ]);
       setProject(opened);
       setDirectories({ "": root });
+      setRootDocuments(detectedRoots);
       setExpanded(new Set([""]));
       setDocuments({});
       setActivePath(null);
@@ -369,6 +380,18 @@ export function App({
     }
   }
 
+  async function selectRootDocument(relativePath: string) {
+    if (!project || !relativePath) return;
+    try {
+      const selected = await client.setRootDocument(
+        project.projectId,
+        relativePath,
+      );
+      setRootDocuments(selected);
+    } catch (reason) {
+      setError(errorMessage(reason));
+    }
+  }
   async function toggleDirectory(path: string) {
     if (!project) return;
     if (expanded.has(path)) {
@@ -568,6 +591,39 @@ export function App({
           {project ? (
             <>
               <h2>{project.name}</h2>
+              {rootDocuments ? (
+                <div className="root-selection">
+                  <label htmlFor="root-document">Root document</label>
+                  {rootDocuments.candidates.length ? (
+                    <select
+                      id="root-document"
+                      value={rootDocuments.selected ?? ""}
+                      onChange={(event) =>
+                        void selectRootDocument(event.target.value)
+                      }
+                    >
+                      <option value="">Choose a root…</option>
+                      {rootDocuments.candidates.map((candidate) => (
+                        <option
+                          key={candidate.relativePath}
+                          value={candidate.relativePath}
+                        >
+                          {candidate.relativePath}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span>No root document detected</span>
+                  )}
+                  {rootDocuments.candidates.length > 1 &&
+                  !rootDocuments.selected ? (
+                    <p role="status">
+                      Multiple root documents were found. Choose one before
+                      building.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
               <div className="tree-options">
                 <label>
                   <input

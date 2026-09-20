@@ -1,15 +1,17 @@
 use cryptex_core::{
     api::{
-        API_VERSION, ApiError, FileTreePage, HealthResponse, ProjectSummary, TextDocument,
-        WriteResult,
+        API_VERSION, ApiError, FileTreePage, HealthResponse, ProjectSummary,
+        RootDocumentCandidates, TextDocument, WriteResult,
     },
     project::{ProjectError, ProjectService},
+    settings::{RootPreferences, SettingsError},
     watcher::ProjectWatcher,
 };
 use std::{collections::HashMap, path::PathBuf, sync::Mutex};
 use tauri::{AppHandle, Emitter, State};
 
 pub type ProjectWatchers = Mutex<HashMap<String, ProjectWatcher>>;
+pub type RootPreferenceState = Mutex<RootPreferences>;
 
 #[tauri::command]
 pub fn health() -> HealthResponse {
@@ -101,6 +103,68 @@ pub fn write_text_file(
         .map_err(project_error)
 }
 
+#[tauri::command(rename_all = "camelCase")]
+pub fn detect_root_documents(
+    project_id: String,
+    projects: State<'_, Mutex<ProjectService>>,
+    preferences: State<'_, RootPreferenceState>,
+) -> Result<RootDocumentCandidates, ApiError> {
+    let preferred = preferences
+        .lock()
+        .map_err(|_| internal_error("root preference lock is poisoned"))?
+        .get(&project_id)
+        .map(str::to_owned);
+    projects
+        .lock()
+        .map_err(|_| internal_error("project service lock is poisoned"))?
+        .detect_root_documents(&project_id, preferred.as_deref())
+        .map_err(project_error)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn set_root_document(
+    project_id: String,
+    relative_path: String,
+    projects: State<'_, Mutex<ProjectService>>,
+    preferences: State<'_, RootPreferenceState>,
+) -> Result<RootDocumentCandidates, ApiError> {
+    let projects = projects
+        .lock()
+        .map_err(|_| internal_error("project service lock is poisoned"))?;
+    let detected = projects
+        .detect_root_documents(&project_id, None)
+        .map_err(project_error)?;
+    if !detected
+        .candidates
+        .iter()
+        .any(|candidate| candidate.relative_path == relative_path)
+    {
+        return Err(ApiError {
+            api_version: API_VERSION,
+            code: "INVALID_ROOT_DOCUMENT".to_owned(),
+            message: "root document must be one of the detected candidates".to_owned(),
+            retryable: false,
+        });
+    }
+    preferences
+        .lock()
+        .map_err(|_| internal_error("root preference lock is poisoned"))?
+        .set(&project_id, &relative_path)
+        .map_err(settings_error)?;
+    projects
+        .detect_root_documents(&project_id, Some(&relative_path))
+        .map_err(project_error)
+}
+
+fn settings_error(error: SettingsError) -> ApiError {
+    let retryable = matches!(&error, SettingsError::Io(_));
+    ApiError {
+        api_version: API_VERSION,
+        code: "SETTINGS_ERROR".to_owned(),
+        message: error.to_string(),
+        retryable,
+    }
+}
 fn project_error(error: ProjectError) -> ApiError {
     let code = match &error {
         ProjectError::UnknownProject => "PROJECT_NOT_OPEN",

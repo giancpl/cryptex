@@ -246,3 +246,28 @@ input {
   padding: 8px;
   white-space: pre-wrap;
 }
+
+.root-selection {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 12px;
+}
+.root-selection label {
+  color: #82909f;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+.root-selection select {
+  background: #151b21;
+  border: 1px solid #40515d;
+  border-radius: 4px;
+  color: #e8edf2;
+  max-width: 100%;
+  padding: 5px 6px;
+}
+.root-selection span,
+.root-selection p {
+  color: #d2a75a;
+  font-size: 0.75rem;
+  margin: 0;
+}

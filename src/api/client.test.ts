@@ -14,6 +14,8 @@ it("exposes a mockable typed backend contract", async () => {
     listDirectory: () => Promise.reject(new Error("not used")),
     readTextFile: () => Promise.reject(new Error("not used")),
     writeTextFile: () => Promise.reject(new Error("not used")),
+    detectRootDocuments: () => Promise.reject(new Error("not used")),
+    setRootDocument: () => Promise.reject(new Error("not used")),
     onProjectFileChange: () => Promise.resolve(() => undefined),
   };
 

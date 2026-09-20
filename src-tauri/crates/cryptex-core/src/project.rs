@@ -1,10 +1,10 @@
 use crate::api::{
     API_VERSION, FileTreeEntry, FileTreeEntryKind, FileTreePage, ProjectSummary, TextDocument,
-    WriteResult,
+    RootDocumentCandidate, RootDocumentCandidates, RootDocumentReason, WriteResult,
 };
 use sha2::{Digest, Sha256};
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     ffi::OsStr,
     fs::{self, File},
     io::{Read, Write},
@@ -236,6 +236,16 @@ impl ProjectService {
         })
     }
 
+    pub fn detect_root_documents(
+        &self,
+        project_id: &str,
+        preferred: Option<&str>,
+    ) -> Result<RootDocumentCandidates, ProjectError> {
+        let id = ProjectId::parse(project_id)?;
+        let project = self.projects.get(&id).ok_or(ProjectError::UnknownProject)?;
+        detect_root_documents(project, preferred)
+    }
+
     fn resolve_file(
         &self,
         project_id: &str,
@@ -291,6 +301,192 @@ impl ProjectService {
     }
 }
 
+const MAX_ROOT_SCAN_FILES: usize = 10_000;
+
+fn detect_root_documents(
+    project: &ProjectRoot,
+    preferred: Option<&str>,
+) -> Result<RootDocumentCandidates, ProjectError> {
+    let files = collect_tex_files(project)?;
+    let mut reasons: BTreeMap<PathBuf, BTreeSet<RootDocumentReason>> = BTreeMap::new();
+
+    for relative in &files {
+        let path = ProjectPath::parse(relative)?;
+        let Ok(resolved) = project.resolve_existing(&path) else {
+            continue;
+        };
+        let Ok(bytes) = read_bounded(&resolved) else {
+            continue;
+        };
+        let Ok(text) = String::from_utf8(bytes) else {
+            continue;
+        };
+        let source = uncomment_tex(&text);
+        if source.contains("\\documentclass") {
+            reasons
+                .entry(relative.clone())
+                .or_default()
+                .insert(RootDocumentReason::DocumentClass);
+        }
+        if source.contains("\\input{") || source.contains("\\include{") {
+            reasons
+                .entry(relative.clone())
+                .or_default()
+                .insert(RootDocumentReason::IncludesFiles);
+        }
+        if let Some(root) = magic_root(&text)
+            .and_then(|value| normalize_magic_root(relative, value))
+            .filter(|candidate| files.contains(candidate))
+        {
+            reasons
+                .entry(root)
+                .or_default()
+                .insert(RootDocumentReason::MagicRoot);
+        }
+    }
+
+    let preferred = preferred
+        .and_then(|value| ProjectPath::parse(value).ok())
+        .map(|path| path.as_path().to_path_buf())
+        .filter(|path| files.contains(path));
+    if let Some(path) = &preferred {
+        reasons
+            .entry(path.clone())
+            .or_default()
+            .insert(RootDocumentReason::Preferred);
+    }
+
+    // Include-only files are useful evidence, but not root candidates by themselves.
+    reasons.retain(|_, evidence| {
+        evidence.contains(&RootDocumentReason::Preferred)
+            || evidence.contains(&RootDocumentReason::MagicRoot)
+            || evidence.contains(&RootDocumentReason::DocumentClass)
+    });
+    let mut candidates = reasons
+        .into_iter()
+        .map(|(path, evidence)| RootDocumentCandidate {
+            relative_path: path.to_string_lossy().into_owned(),
+            reasons: evidence.into_iter().collect(),
+        })
+        .collect::<Vec<_>>();
+    candidates.sort_by(|left, right| {
+        candidate_rank(left)
+            .cmp(&candidate_rank(right))
+            .then_with(|| left.relative_path.cmp(&right.relative_path))
+    });
+    let selected = preferred
+        .map(|path| path.to_string_lossy().into_owned())
+        .or_else(|| (candidates.len() == 1).then(|| candidates[0].relative_path.clone()));
+
+    Ok(RootDocumentCandidates {
+        api_version: API_VERSION,
+        candidates,
+        selected,
+    })
+}
+
+fn collect_tex_files(project: &ProjectRoot) -> Result<BTreeSet<PathBuf>, ProjectError> {
+    let mut files = BTreeSet::new();
+    let mut pending = BTreeSet::from([project.canonical_path().to_path_buf()]);
+    let mut visited = HashSet::new();
+    while let Some(directory) = pending.pop_first() {
+        let canonical = directory.canonicalize().map_err(ProjectError::Io)?;
+        if !canonical.starts_with(project.canonical_path()) || !visited.insert(canonical.clone()) {
+            continue;
+        }
+        let Ok(entries) = fs::read_dir(canonical) else {
+            continue;
+        };
+        for entry in entries {
+            let Ok(entry) = entry else {
+                continue;
+            };
+            let path = entry.path();
+            let Ok(resolved) = path.canonicalize() else {
+                continue;
+            };
+            if !resolved.starts_with(project.canonical_path()) {
+                continue;
+            }
+            if resolved.is_dir() {
+                pending.insert(resolved);
+            } else if resolved.is_file()
+                && path.extension().and_then(OsStr::to_str) == Some("tex")
+                && let Ok(relative) = path.strip_prefix(project.canonical_path())
+            {
+                files.insert(relative.to_path_buf());
+                if files.len() >= MAX_ROOT_SCAN_FILES {
+                    return Ok(files);
+                }
+            }
+        }
+    }
+    Ok(files)
+}
+
+fn uncomment_tex(text: &str) -> String {
+    text.lines()
+        .map(|line| {
+            let mut escaped = false;
+            let end = line
+                .char_indices()
+                .find_map(|(index, character)| {
+                    if character == '%' && !escaped {
+                        Some(index)
+                    } else {
+                        escaped = character == '\\' && !escaped;
+                        if character != '\\' {
+                            escaped = false;
+                        }
+                        None
+                    }
+                })
+                .unwrap_or(line.len());
+            &line[..end]
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn magic_root(text: &str) -> Option<&str> {
+    text.lines().take(20).find_map(|line| {
+        let comment = line.trim_start().strip_prefix('%')?.trim();
+        let (key, value) = comment.split_once('=')?;
+        key.trim()
+            .eq_ignore_ascii_case("!TEX root")
+            .then(|| value.trim())
+            .filter(|value| !value.is_empty())
+    })
+}
+
+fn normalize_magic_root(source: &Path, value: &str) -> Option<PathBuf> {
+    let value = Path::new(value);
+    if value.is_absolute() {
+        return None;
+    }
+    let mut result = source.parent().unwrap_or(Path::new("")).to_path_buf();
+    for component in value.components() {
+        match component {
+            Component::Normal(part) => result.push(part),
+            Component::ParentDir if result.pop() => {}
+            _ => return None,
+        }
+    }
+    if result.extension().is_none() {
+        result.set_extension("tex");
+    }
+    Some(result)
+}
+
+fn candidate_rank(candidate: &RootDocumentCandidate) -> u8 {
+    if candidate.reasons.contains(&RootDocumentReason::Preferred) {
+        0
+    } else if candidate.reasons.contains(&RootDocumentReason::MagicRoot) {
+        1
+    } else {
+        2
+    }
+}
 fn read_bounded(path: &Path) -> Result<Vec<u8>, ProjectError> {
     let file = File::open(path).map_err(ProjectError::Io)?;
     let mut bytes = Vec::new();
@@ -532,5 +728,107 @@ mod tests {
         let escape = page.entries.iter().find(|entry| entry.name == "escape.tex").expect("symlink entry");
         assert!(!escape.accessible);
         assert_eq!(escape.kind, FileTreeEntryKind::Symlink);
+    }
+
+    #[test]
+    fn detects_a_single_document_class_as_the_selected_root() {
+        let directory = tempdir().expect("temporary project");
+        fs::write(
+            directory.path().join("main.tex"),
+            "\\documentclass{article}\n\\begin{document}\n\\end{document}\n",
+        )
+        .expect("root fixture");
+        let mut service = ProjectService::default();
+        let project = service.open(directory.path()).expect("open project");
+
+        let roots = service
+            .detect_root_documents(&project.project_id, None)
+            .expect("detect roots");
+
+        assert_eq!(roots.selected.as_deref(), Some("main.tex"));
+        assert_eq!(roots.candidates.len(), 1);
+        assert_eq!(
+            roots.candidates[0].reasons,
+            vec![RootDocumentReason::DocumentClass]
+        );
+    }
+
+    #[test]
+    fn magic_comment_resolves_parent_segments_without_escaping_root() {
+        let directory = tempdir().expect("temporary project");
+        fs::create_dir(directory.path().join("chapters")).expect("fixture directory");
+        fs::write(
+            directory.path().join("main.tex"),
+            "\\documentclass{article}\n\\input{chapters/intro}\n",
+        )
+        .expect("root fixture");
+        fs::write(
+            directory.path().join("chapters/intro.tex"),
+            "% !TEX root = ../main.tex\nChapter\n",
+        )
+        .expect("subfile fixture");
+        fs::write(
+            directory.path().join("chapters/unsafe.tex"),
+            "% !TEX root = ../../outside.tex\n",
+        )
+        .expect("unsafe fixture");
+        let mut service = ProjectService::default();
+        let project = service.open(directory.path()).expect("open project");
+
+        let roots = service
+            .detect_root_documents(&project.project_id, None)
+            .expect("detect roots");
+
+        assert_eq!(roots.selected.as_deref(), Some("main.tex"));
+        assert!(
+            roots.candidates[0]
+                .reasons
+                .contains(&RootDocumentReason::MagicRoot)
+        );
+        assert!(
+            roots.candidates[0]
+                .reasons
+                .contains(&RootDocumentReason::IncludesFiles)
+        );
+    }
+
+    #[test]
+    fn multiple_roots_are_ambiguous_until_a_valid_preference_is_given() {
+        let directory = tempdir().expect("temporary project");
+        fs::write(directory.path().join("a.tex"), "\\documentclass{article}\n")
+            .expect("first root");
+        fs::write(directory.path().join("b.tex"), "\\documentclass{book}\n")
+            .expect("second root");
+        fs::write(
+            directory.path().join("commented.tex"),
+            "% \\documentclass{report}\n",
+        )
+        .expect("comment fixture");
+        let mut service = ProjectService::default();
+        let project = service.open(directory.path()).expect("open project");
+
+        let ambiguous = service
+            .detect_root_documents(&project.project_id, None)
+            .expect("detect roots");
+        assert_eq!(ambiguous.selected, None);
+        assert_eq!(
+            ambiguous
+                .candidates
+                .iter()
+                .map(|candidate| candidate.relative_path.as_str())
+                .collect::<Vec<_>>(),
+            vec!["a.tex", "b.tex"]
+        );
+
+        let preferred = service
+            .detect_root_documents(&project.project_id, Some("b.tex"))
+            .expect("detect preferred root");
+        assert_eq!(preferred.selected.as_deref(), Some("b.tex"));
+        assert_eq!(preferred.candidates[0].relative_path, "b.tex");
+        assert!(
+            preferred.candidates[0]
+                .reasons
+                .contains(&RootDocumentReason::Preferred)
+        );
     }
 }
