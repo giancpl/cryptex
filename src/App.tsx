@@ -42,6 +42,7 @@ export function App({
   const [documents, setDocuments] = useState<Record<string, OpenDocument>>({});
   const [activePath, setActivePath] = useState<string | null>(null);
   const documentsRef = useRef(documents);
+  const directoriesRef = useRef(directories);
   const saveQueues = useRef(new Map<string, Promise<void>>());
   const autosaveTimers = useRef(
     new Map<string, { revision: number; timer: number }>(),
@@ -50,6 +51,53 @@ export function App({
   useEffect(() => {
     documentsRef.current = documents;
   }, [documents]);
+
+  useEffect(() => {
+    directoriesRef.current = directories;
+  }, [directories]);
+
+  useEffect(() => {
+    if (!project) return;
+    let disposed = false;
+    let unsubscribe: (() => void) | undefined;
+    void client
+      .onProjectFileChange((change) => {
+        if (
+          disposed ||
+          change.projectId !== project.projectId ||
+          change.selfWrite
+        )
+          return;
+        const loadedDirectories = Object.keys(directoriesRef.current);
+        void Promise.all(
+          loadedDirectories.map((path) =>
+            client.listDirectory(project.projectId, path),
+          ),
+        )
+          .then((pages) => {
+            if (disposed) return;
+            setDirectories(
+              Object.fromEntries(
+                loadedDirectories.map((path, index) => [path, pages[index]]),
+              ),
+            );
+          })
+          .catch((reason: unknown) => {
+            if (!disposed) setError(errorMessage(reason));
+          });
+      })
+      .then((stop) => {
+        if (disposed) stop();
+        else unsubscribe = stop;
+      })
+      .catch((reason: unknown) => {
+        if (!disposed) setError(errorMessage(reason));
+      });
+    return () => {
+      disposed = true;
+      unsubscribe?.();
+    };
+  }, [client, project]);
 
   const saveDocument = useCallback(
     (path: string): Promise<void> => {

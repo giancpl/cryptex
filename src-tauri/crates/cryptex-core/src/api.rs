@@ -100,6 +100,28 @@ pub struct WriteResult {
     pub size_bytes: u64,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
+pub struct ProjectFileChange {
+    pub api_version: u16,
+    pub project_id: String,
+    pub relative_paths: Vec<String>,
+    pub kind: ProjectFileChangeKind,
+    pub self_write: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
+pub enum ProjectFileChangeKind {
+    Create,
+    Modify,
+    Remove,
+    Rename,
+    Rescan,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

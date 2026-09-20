@@ -56,6 +56,7 @@ describe("App", () => {
       listDirectory,
       readTextFile,
       writeTextFile,
+      onProjectFileChange: vi.fn().mockResolvedValue(() => undefined),
     };
     render(
       <App client={client} pickDirectory={() => Promise.resolve("/paper")} />,

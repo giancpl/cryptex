@@ -1,8 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { FileTreePage } from "../bindings/FileTreePage";
 import type { HealthResponse } from "../bindings/HealthResponse";
 import type { ProjectSummary } from "../bindings/ProjectSummary";
+import type { ProjectFileChange } from "../bindings/ProjectFileChange";
 import type { TextDocument } from "../bindings/TextDocument";
 import type { WriteResult } from "../bindings/WriteResult";
 
@@ -17,6 +19,9 @@ export interface BackendClient {
     text: string,
     expectedFingerprint: string,
   ): Promise<WriteResult>;
+  onProjectFileChange(
+    listener: (change: ProjectFileChange) => void,
+  ): Promise<() => void>;
 }
 
 export const backendClient: BackendClient = {
@@ -33,6 +38,10 @@ export const backendClient: BackendClient = {
       text,
       expectedFingerprint,
     }),
+  onProjectFileChange: (listener) =>
+    listen<ProjectFileChange>("project-file-change", (event) =>
+      listener(event.payload),
+    ),
 };
 
 export async function pickProjectDirectory(): Promise<string | null> {

@@ -16,7 +16,10 @@
 - C2: implemented with explicit save, Mod-S, 750 ms autosave, monotone buffer
   revisions, per-file serialized write queues, retryable error state, and dirty
   close/project-switch protection.
-- Next: C3 recursive watcher and self-write correlation.
+- C3: implemented with recursive native watching, 100 ms event coalescing,
+  normalized create/modify/remove/rename/rescan events, tree refresh, and
+  fingerprint-based self-write correlation.
+- Next: C4 external-change conflict handling.
 
 The authoritative sequence is:
 
