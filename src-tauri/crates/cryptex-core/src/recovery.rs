@@ -1,6 +1,6 @@
 use crate::{
     api::{API_VERSION, RecoveryInventory, RecoverySnapshot},
-    project::{ProjectId, ProjectPath, ProjectPathError, MAX_TEXT_FILE_BYTES},
+    project::{MAX_TEXT_FILE_BYTES, ProjectId, ProjectPath, ProjectPathError},
 };
 use sha2::{Digest, Sha256};
 use std::{
@@ -109,11 +109,8 @@ impl RecoveryService {
                         && snapshot.project_id == project_id.as_str()
                         && snapshot.text.len() as u64 <= MAX_TEXT_FILE_BYTES
                         && valid_fingerprint(&snapshot.base_fingerprint)
-                        && validate_identity(
-                            &snapshot.project_id,
-                            &snapshot.relative_path,
-                        )
-                        .is_ok() =>
+                        && validate_identity(&snapshot.project_id, &snapshot.relative_path)
+                            .is_ok() =>
                 {
                     snapshots.push(snapshot);
                 }
@@ -239,11 +236,13 @@ mod tests {
         restarted
             .delete(&project_id, "renamed/main.tex")
             .expect("delete snapshot");
-        assert!(restarted
-            .list(&project_id)
-            .expect("list after delete")
-            .snapshots
-            .is_empty());
+        assert!(
+            restarted
+                .list(&project_id)
+                .expect("list after delete")
+                .snapshots
+                .is_empty()
+        );
     }
 
     #[test]
@@ -260,7 +259,10 @@ mod tests {
 
         let inventory = service.list(&project_id).expect("list snapshots");
         assert_eq!(inventory.snapshots.len(), 1);
-        assert_eq!(inventory.warnings, vec!["Ignored corrupt recovery snapshot"]);
+        assert_eq!(
+            inventory.warnings,
+            vec!["Ignored corrupt recovery snapshot"]
+        );
     }
 
     #[test]
@@ -276,10 +278,12 @@ mod tests {
         service
             .store(&first, "main.tex", "draft", &"0".repeat(64), 1)
             .expect("store first project");
-        assert!(service
-            .list(&second)
-            .expect("list second project")
-            .snapshots
-            .is_empty());
+        assert!(
+            service
+                .list(&second)
+                .expect("list second project")
+                .snapshots
+                .is_empty()
+        );
     }
 }

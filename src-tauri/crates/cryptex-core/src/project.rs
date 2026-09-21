@@ -1,6 +1,6 @@
 use crate::api::{
-    API_VERSION, FileTreeEntry, FileTreeEntryKind, FileTreePage, ProjectSummary, TextDocument,
-    RootDocumentCandidate, RootDocumentCandidates, RootDocumentReason, WriteResult,
+    API_VERSION, FileTreeEntry, FileTreeEntryKind, FileTreePage, ProjectSummary,
+    RootDocumentCandidate, RootDocumentCandidates, RootDocumentReason, TextDocument, WriteResult,
 };
 use sha2::{Digest, Sha256};
 use std::{
@@ -10,8 +10,8 @@ use std::{
     io::{Read, Write},
     path::{Component, Path, PathBuf},
 };
-use thiserror::Error;
 use tempfile::NamedTempFile;
+use thiserror::Error;
 
 pub const MAX_DIRECTORY_ENTRIES: usize = 5_000;
 pub const MAX_TEXT_FILE_BYTES: u64 = 5 * 1024 * 1024;
@@ -212,20 +212,29 @@ impl ProjectService {
         if fingerprint(&original) != expected_fingerprint {
             return Err(ProjectError::StaleFingerprint);
         }
-        let permissions = fs::metadata(&resolved).map_err(ProjectError::Io)?.permissions();
+        let permissions = fs::metadata(&resolved)
+            .map_err(ProjectError::Io)?
+            .permissions();
         let parent = resolved.parent().ok_or(ProjectError::InvalidParent)?;
         let mut temporary = NamedTempFile::new_in(parent).map_err(ProjectError::Io)?;
-        temporary.write_all(text.as_bytes()).map_err(ProjectError::Io)?;
+        temporary
+            .write_all(text.as_bytes())
+            .map_err(ProjectError::Io)?;
         temporary.flush().map_err(ProjectError::Io)?;
         temporary.as_file().sync_all().map_err(ProjectError::Io)?;
-        temporary.as_file().set_permissions(permissions).map_err(ProjectError::Io)?;
+        temporary
+            .as_file()
+            .set_permissions(permissions)
+            .map_err(ProjectError::Io)?;
 
         // Revalidate immediately before replacement. This prevents normal editor races;
         // callers must still treat filesystem writes as fallible external operations.
         if fingerprint(&read_bounded(&resolved)?) != expected_fingerprint {
             return Err(ProjectError::StaleFingerprint);
         }
-        temporary.persist(&resolved).map_err(|error| ProjectError::Io(error.error))?;
+        temporary
+            .persist(&resolved)
+            .map_err(|error| ProjectError::Io(error.error))?;
         sync_directory(parent)?;
 
         Ok(WriteResult {
@@ -505,7 +514,9 @@ fn fingerprint(bytes: &[u8]) -> String {
 
 fn sync_directory(path: &Path) -> Result<(), ProjectError> {
     #[cfg(unix)]
-    File::open(path).and_then(|directory| directory.sync_all()).map_err(ProjectError::Io)?;
+    File::open(path)
+        .and_then(|directory| directory.sync_all())
+        .map_err(ProjectError::Io)?;
     Ok(())
 }
 
@@ -578,9 +589,18 @@ mod tests {
     fn accepts_root_and_normal_relative_paths() {
         assert!(ProjectPath::parse("").is_ok());
         assert!(ProjectPath::parse("chapters/intro.tex").is_ok());
-        assert!(matches!(ProjectPath::parse("/tmp/main.tex"), Err(ProjectPathError::Absolute)));
-        assert!(matches!(ProjectPath::parse("../main.tex"), Err(ProjectPathError::Traversal)));
-        assert!(matches!(ProjectPath::parse("./main.tex"), Err(ProjectPathError::Traversal)));
+        assert!(matches!(
+            ProjectPath::parse("/tmp/main.tex"),
+            Err(ProjectPathError::Absolute)
+        ));
+        assert!(matches!(
+            ProjectPath::parse("../main.tex"),
+            Err(ProjectPathError::Traversal)
+        ));
+        assert!(matches!(
+            ProjectPath::parse("./main.tex"),
+            Err(ProjectPathError::Traversal)
+        ));
     }
 
     #[test]
@@ -599,8 +619,14 @@ mod tests {
         fs::write(directory.path().join("a.tex"), "test").expect("fixture file");
         let mut service = ProjectService::default();
         let project = service.open(directory.path()).expect("open project");
-        let page = service.list_directory(&project.project_id, "").expect("list root");
-        let names = page.entries.iter().map(|entry| entry.name.as_str()).collect::<Vec<_>>();
+        let page = service
+            .list_directory(&project.project_id, "")
+            .expect("list root");
+        let names = page
+            .entries
+            .iter()
+            .map(|entry| entry.name.as_str())
+            .collect::<Vec<_>>();
         assert_eq!(names, vec!["chapters", "a.tex", "Z.tex"]);
     }
 
@@ -611,9 +637,23 @@ mod tests {
         fs::write(directory.path().join("main.aux"), "test").expect("fixture file");
         let mut service = ProjectService::default();
         let project = service.open(directory.path()).expect("open project");
-        let page = service.list_directory(&project.project_id, "").expect("list root");
-        assert!(page.entries.iter().find(|entry| entry.name == ".hidden").expect("hidden").hidden);
-        assert!(page.entries.iter().find(|entry| entry.name == "main.aux").expect("generated").generated);
+        let page = service
+            .list_directory(&project.project_id, "")
+            .expect("list root");
+        assert!(
+            page.entries
+                .iter()
+                .find(|entry| entry.name == ".hidden")
+                .expect("hidden")
+                .hidden
+        );
+        assert!(
+            page.entries
+                .iter()
+                .find(|entry| entry.name == "main.aux")
+                .expect("generated")
+                .generated
+        );
     }
 
     #[test]
@@ -622,7 +662,9 @@ mod tests {
         fs::write(directory.path().join("main.tex"), "Cifratura: π\n").expect("fixture file");
         let mut service = ProjectService::default();
         let project = service.open(directory.path()).expect("open project");
-        let document = service.read_text_file(&project.project_id, "main.tex").expect("read text");
+        let document = service
+            .read_text_file(&project.project_id, "main.tex")
+            .expect("read text");
         assert_eq!(document.text, "Cifratura: π\n");
         assert_eq!(document.size_bytes, 14);
         assert_eq!(document.fingerprint.len(), 64);
@@ -661,7 +703,9 @@ mod tests {
         fs::write(&file, "original").expect("fixture file");
         let mut service = ProjectService::default();
         let project = service.open(directory.path()).expect("open project");
-        let document = service.read_text_file(&project.project_id, "main.tex").expect("read text");
+        let document = service
+            .read_text_file(&project.project_id, "main.tex")
+            .expect("read text");
         fs::write(&file, "external edit").expect("external edit");
         assert!(matches!(
             service.write_text_file(
@@ -672,7 +716,10 @@ mod tests {
             ),
             Err(ProjectError::StaleFingerprint)
         ));
-        assert_eq!(fs::read_to_string(file).expect("preserved file"), "external edit");
+        assert_eq!(
+            fs::read_to_string(file).expect("preserved file"),
+            "external edit"
+        );
     }
 
     #[test]
@@ -682,11 +729,20 @@ mod tests {
         fs::write(&file, "original").expect("fixture file");
         let mut service = ProjectService::default();
         let project = service.open(directory.path()).expect("open project");
-        let document = service.read_text_file(&project.project_id, "main.tex").expect("read text");
+        let document = service
+            .read_text_file(&project.project_id, "main.tex")
+            .expect("read text");
         let result = service
-            .write_text_file(&project.project_id, "main.tex", "updated", &document.fingerprint)
+            .write_text_file(
+                &project.project_id,
+                "main.tex",
+                "updated",
+                &document.fingerprint,
+            )
             .expect("atomic write");
-        let reread = service.read_text_file(&project.project_id, "main.tex").expect("reread text");
+        let reread = service
+            .read_text_file(&project.project_id, "main.tex")
+            .expect("reread text");
         assert_eq!(reread.text, "updated");
         assert_eq!(result.fingerprint, reread.fingerprint);
     }
@@ -702,9 +758,16 @@ mod tests {
         fs::set_permissions(&file, fs::Permissions::from_mode(0o640)).expect("fixture permissions");
         let mut service = ProjectService::default();
         let project = service.open(directory.path()).expect("open project");
-        let document = service.read_text_file(&project.project_id, "main.tex").expect("read text");
+        let document = service
+            .read_text_file(&project.project_id, "main.tex")
+            .expect("read text");
         service
-            .write_text_file(&project.project_id, "main.tex", "updated", &document.fingerprint)
+            .write_text_file(
+                &project.project_id,
+                "main.tex",
+                "updated",
+                &document.fingerprint,
+            )
             .expect("atomic write");
         assert_eq!(fs::metadata(file).expect("metadata").mode() & 0o777, 0o640);
     }
@@ -717,15 +780,30 @@ mod tests {
         let directory = tempdir().expect("temporary project");
         let outside = tempdir().expect("outside directory");
         fs::write(outside.path().join("secret.tex"), "secret").expect("fixture file");
-        symlink(outside.path().join("secret.tex"), directory.path().join("escape.tex"))
-            .expect("fixture symlink");
+        symlink(
+            outside.path().join("secret.tex"),
+            directory.path().join("escape.tex"),
+        )
+        .expect("fixture symlink");
         let mut service = ProjectService::default();
         let summary = service.open(directory.path()).expect("open project");
-        let root = service.projects.get(&ProjectId::parse(&summary.project_id).expect("id")).expect("root");
+        let root = service
+            .projects
+            .get(&ProjectId::parse(&summary.project_id).expect("id"))
+            .expect("root");
         let path = ProjectPath::parse("escape.tex").expect("valid relative path");
-        assert!(matches!(root.resolve_existing(&path), Err(ProjectPathError::OutsideRoot)));
-        let page = service.list_directory(&summary.project_id, "").expect("list root");
-        let escape = page.entries.iter().find(|entry| entry.name == "escape.tex").expect("symlink entry");
+        assert!(matches!(
+            root.resolve_existing(&path),
+            Err(ProjectPathError::OutsideRoot)
+        ));
+        let page = service
+            .list_directory(&summary.project_id, "")
+            .expect("list root");
+        let escape = page
+            .entries
+            .iter()
+            .find(|entry| entry.name == "escape.tex")
+            .expect("symlink entry");
         assert!(!escape.accessible);
         assert_eq!(escape.kind, FileTreeEntryKind::Symlink);
     }
@@ -797,8 +875,7 @@ mod tests {
         let directory = tempdir().expect("temporary project");
         fs::write(directory.path().join("a.tex"), "\\documentclass{article}\n")
             .expect("first root");
-        fs::write(directory.path().join("b.tex"), "\\documentclass{book}\n")
-            .expect("second root");
+        fs::write(directory.path().join("b.tex"), "\\documentclass{book}\n").expect("second root");
         fs::write(
             directory.path().join("commented.tex"),
             "% \\documentclass{report}\n",

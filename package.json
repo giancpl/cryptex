@@ -15,7 +15,7 @@
     "lint": "eslint . --max-warnings 0",
     "format:check": "prettier --check .",
     "typecheck": "tsc -b --pretty false",
-    "rust:fmt": "cargo fmt --manifest-path src-tauri/Cargo.toml --check",
+    "rust:fmt": "cargo fmt --manifest-path src-tauri/crates/cryptex-core/Cargo.toml --check && cargo fmt --manifest-path src-tauri/Cargo.toml --check",
     "rust:lint": "cargo clippy --manifest-path src-tauri/crates/cryptex-core/Cargo.toml --all-targets --all-features -- -D warnings",
     "rust:test": "cargo test --manifest-path src-tauri/crates/cryptex-core/Cargo.toml --all-features",
     "desktop:lint": "cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings",

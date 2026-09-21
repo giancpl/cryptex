@@ -1,13 +1,13 @@
 use crate::api::{API_VERSION, ProjectFileChange, ProjectFileChangeKind};
 use notify::{
-    event::ModifyKind, Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher,
+    Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher, event::ModifyKind,
 };
 use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, HashMap},
     fs,
     path::{Path, PathBuf},
-    sync::{mpsc, Arc, Mutex},
+    sync::{Arc, Mutex, mpsc},
     thread,
     time::{Duration, Instant},
 };
@@ -47,19 +47,19 @@ impl ProjectWatcher {
         let worker_root = root.clone();
         let worker_expected = Arc::clone(&expected_writes);
         thread::Builder::new()
-            .name(format!("cryptex-watch-{}", &project_id[..project_id.len().min(8)]))
+            .name(format!(
+                "cryptex-watch-{}",
+                &project_id[..project_id.len().min(8)]
+            ))
             .spawn(move || {
                 while let Ok(first) = receiver.recv() {
                     let mut events = vec![first];
                     while let Ok(event) = receiver.recv_timeout(DEBOUNCE) {
                         events.push(event);
                     }
-                    for change in normalize_batch(
-                        &project_id,
-                        &worker_root,
-                        &worker_expected,
-                        events,
-                    ) {
+                    for change in
+                        normalize_batch(&project_id, &worker_root, &worker_expected, events)
+                    {
                         emit(change);
                     }
                 }
@@ -132,9 +132,9 @@ fn normalize_batch(
             }
             let self_write = expected.as_mut().is_some_and(|expected| {
                 absolute_paths.iter().any(|path| {
-                    let matches = expected
-                        .get(path)
-                        .is_some_and(|(fingerprint, _)| file_fingerprint(path).as_ref() == Some(fingerprint));
+                    let matches = expected.get(path).is_some_and(|(fingerprint, _)| {
+                        file_fingerprint(path).as_ref() == Some(fingerprint)
+                    });
                     if matches {
                         expected.remove(path);
                     }
@@ -215,13 +215,15 @@ mod tests {
         )
         .expect("start watcher");
 
-        fs::write(directory.path().join("chapters/intro.tex"), "intro")
-            .expect("external create");
+        fs::write(directory.path().join("chapters/intro.tex"), "intro").expect("external create");
         let deadline = Instant::now() + Duration::from_secs(5);
         let mut found = false;
         while Instant::now() < deadline {
             if let Ok(change) = receiver.recv_timeout(Duration::from_millis(250)) {
-                found |= change.relative_paths.iter().any(|path| path == "chapters/intro.tex");
+                found |= change
+                    .relative_paths
+                    .iter()
+                    .any(|path| path == "chapters/intro.tex");
                 if found {
                     break;
                 }
@@ -249,7 +251,8 @@ mod tests {
         let mut correlated = false;
         while Instant::now() < deadline {
             if let Ok(change) = receiver.recv_timeout(Duration::from_millis(250)) {
-                correlated |= change.self_write && change.relative_paths.iter().any(|path| path == "main.tex");
+                correlated |= change.self_write
+                    && change.relative_paths.iter().any(|path| path == "main.tex");
                 if correlated {
                     break;
                 }

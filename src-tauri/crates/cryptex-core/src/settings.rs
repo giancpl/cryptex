@@ -51,10 +51,9 @@ impl RootPreferences {
             return Err(SettingsError::UnsafePath(ProjectPathError::Traversal));
         }
         let key = project_id.as_str().to_owned();
-        let previous = self.projects.insert(
-            key.clone(),
-            path.as_path().to_string_lossy().into_owned(),
-        );
+        let previous = self
+            .projects
+            .insert(key.clone(), path.as_path().to_string_lossy().into_owned());
         if let Err(error) = self.persist() {
             if let Some(previous) = previous {
                 self.projects.insert(key, previous);
