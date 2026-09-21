@@ -12,5 +12,9 @@ LaTeX projects are untrusted input and may attempt filesystem or process access.
 - Bound file, parser, log, PDF, and indexing input.
 - Serve build artifacts through scoped capabilities, not arbitrary file URLs.
 
+The D3 supervisor implements the fixed-executable, argument-array, cleared-environment,
+bounded-output, timeout/cancellation, resource-limit, and process-group controls. It
+is an internal backend service and is not exposed as a general process command.
+
 Restricted TeX is not a proven sandbox. OS sandboxing is a release investigation,
 not a reason to weaken the controls above.

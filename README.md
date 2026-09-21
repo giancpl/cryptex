@@ -38,6 +38,6 @@ decision, measured size, licensing gates, and remaining clean-machine checks.
 
 ## Status
 
-M0 and local project editing through C6 are implemented. D1 has frozen the
-managed TeX Live direction; D2 toolchain lifecycle work is next. No production
-release exists.
+M0 and local project editing through C6 are implemented. D1-D3 have frozen the
+managed TeX Live direction, verified installed toolchains, and added restricted
+process execution; D4 trust permissions are next. No production release exists.

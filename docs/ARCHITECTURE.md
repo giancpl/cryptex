@@ -21,3 +21,14 @@ a strict versioned manifest and `active.json`. Every required executable is
 canonicalized beneath that root, SHA-256 checked, and version-probed with a cleared
 environment before the toolchain can be reported ready. Project paths and ambient
 `PATH` are never discovery inputs. See ADR-002.
+
+## Restricted process boundary
+
+D3 keeps process creation inside the Rust core; there is intentionally no generic
+frontend execution command. Callers select a named, pre-registered executable and
+provide an argument array plus a working directory that is canonicalized beneath an
+approved root immediately before spawning. The supervisor clears the inherited
+environment, supplies only the managed binary directory and stable locale/timezone,
+streams a bounded combined stdout/stderr budget, and enforces timeout, cancellation,
+and resource limits. On Linux, each child starts in a fresh process group so
+termination covers descendants.

@@ -34,7 +34,12 @@
 - D2: implemented with an app-data-only versioned toolchain root, strict manifest
   parsing, canonical-root confinement, SHA-256 executable verification, native
   version probes, typed readiness states, and no project/PATH fallback.
-- Next: D3 restricted process supervisor.
+- D3: implemented as an internal Rust-only supervisor with named allowlisted
+  executables, argument arrays, canonical working-root enforcement, a cleared
+  environment, bounded output streaming, timeout/cancellation, Linux resource
+  limits, and whole-process-group termination. No generic execution command is
+  exposed to the frontend.
+- Next: D4 trust and compilation permissions.
 
 The authoritative sequence is:
 
@@ -49,6 +54,6 @@ The authoritative sequence is:
 9. B3 fingerprinted reads and atomic writes.
 10. C1 CodeMirror and document tabs.
 
-Continue with C2-C6, D2-D4, E1-E4, F1-F6, G1-G4, H1-H5, I1-I5, and J1-J6 in
+Continue with D4, E1-E4, F1-F6, G1-G4, H1-H5, I1-I5, and J1-J6 in
 dependency order. M8-M10 remain blocked until J6. Each task is an independently
 reviewable change with tests and the global acceptance rules.
