@@ -23,6 +23,8 @@ supply executable paths, flags, shell syntax, or arbitrary engine names. The E2
 request builder always names managed `latexmk`, suppresses automatic rc discovery,
 validates any explicitly permitted project rc inside the root, prefixes root filenames
 so they cannot become options, and derives shell-escape flags only from backend trust.
+E3 cancellation targets the active operation token, and a preempted or mismatched
+operation cannot publish a result or replace newer build state.
 
 Restricted TeX is not a proven sandbox. OS sandboxing is a release investigation,
 not a reason to weaken the controls above.

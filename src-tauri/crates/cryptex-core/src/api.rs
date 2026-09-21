@@ -72,6 +72,14 @@ pub struct ToolchainBinary {
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "../../../../src/bindings/")]
+pub enum BuildReason {
+    Save,
+    Explicit,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
 pub enum LatexEngine {
     PdfLatex,
     XeLatex,

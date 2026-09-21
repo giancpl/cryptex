@@ -61,3 +61,13 @@ PDF, SyncTeX, log, recorder, and latexmk database paths. Automatic rc discovery 
 always disabled with `-norc`; an in-root `.latexmkrc` is loaded explicitly with
 `-r` only when backend trust allows it. Later fixed arguments select the resolved
 engine and explicit shell-escape mode.
+
+## Build scheduling
+
+E3 models scheduling as a backend state machine independent of Tauri and worker
+threads. Each project has at most one active and one coalesced queued request. New
+save builds replace older queued saves; an explicit build preempts an active save
+and suppresses its eventual result; saves arriving behind a queued explicit build
+coalesce into it. Monotonic operation IDs scope cancellation and completion, and a
+completion for any non-active ID is stale by definition. Different projects remain
+independent and may execute concurrently.

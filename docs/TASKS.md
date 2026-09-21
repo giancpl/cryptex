@@ -53,7 +53,10 @@
   filenames to prevent option injection; keeps artifacts in a validated app-cache
   directory; and loads an in-root `.latexmkrc` only with backend permission while
   suppressing every automatic rc file.
-- Next: E3 build scheduler and execution.
+- E3: implemented as a deterministic generic scheduler with one active build per
+  project, monotonic operation IDs, save-request coalescing, explicit-build priority,
+  cancellation tokens, independent parallel projects, and stale-result suppression.
+- Next: E4 build-state UI, execution wiring, and artifact lifecycle.
 
 The authoritative sequence is:
 
@@ -68,6 +71,6 @@ The authoritative sequence is:
 9. B3 fingerprinted reads and atomic writes.
 10. C1 CodeMirror and document tabs.
 
-Continue with E3-E4, F1-F6, G1-G4, H1-H5, I1-I5, and J1-J6 in
+Continue with E4, F1-F6, G1-G4, H1-H5, I1-I5, and J1-J6 in
 dependency order. M8-M10 remain blocked until J6. Each task is an independently
 reviewable change with tests and the global acceptance rules.
