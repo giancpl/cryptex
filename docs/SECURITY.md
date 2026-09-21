@@ -18,6 +18,8 @@ is an internal backend service and is not exposed as a general process command.
 Project `.latexmkrc` and shell escape permissions are stored independently, denied
 by default, and checked from backend state keyed by canonical project identity. The
 frontend can request or revoke permission but cannot assert trusted build flags.
+Build engines cross the backend boundary as a closed enum; TeX magic comments cannot
+supply executable paths, flags, shell syntax, or arbitrary engine names.
 
 Restricted TeX is not a proven sandbox. OS sandboxing is a release investigation,
 not a reason to weaken the controls above.

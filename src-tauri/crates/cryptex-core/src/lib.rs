@@ -1,4 +1,5 @@
 pub mod api;
+pub mod build;
 pub mod process;
 pub mod project;
 pub mod toolchain;

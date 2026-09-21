@@ -1,9 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
+import type { BuildConfiguration } from "../bindings/BuildConfiguration";
 import type { BuildPermission } from "../bindings/BuildPermission";
 import type { FileTreePage } from "../bindings/FileTreePage";
 import type { HealthResponse } from "../bindings/HealthResponse";
+import type { LatexEngine } from "../bindings/LatexEngine";
 import type { RecoveryInventory } from "../bindings/RecoveryInventory";
 import type { RecoverySnapshot } from "../bindings/RecoverySnapshot";
 import type { RootDocumentCandidates } from "../bindings/RootDocumentCandidates";
@@ -36,6 +38,15 @@ export interface BackendClient {
     projectId: string,
     relativePath: string,
   ): Promise<RootDocumentCandidates>;
+  resolveBuildConfiguration(
+    this: void,
+    projectId: string,
+  ): Promise<BuildConfiguration>;
+  setProjectEngine(
+    this: void,
+    projectId: string,
+    engine: LatexEngine | null,
+  ): Promise<void>;
   projectTrust(this: void, projectId: string): Promise<ProjectTrustState>;
   setProjectPermission(
     this: void,
@@ -88,6 +99,10 @@ export const backendClient: BackendClient = {
       projectId,
       relativePath,
     }),
+  resolveBuildConfiguration: (projectId) =>
+    invoke<BuildConfiguration>("resolve_build_configuration", { projectId }),
+  setProjectEngine: (projectId, engine) =>
+    invoke<void>("set_project_engine", { projectId, engine }),
   projectTrust: (projectId) =>
     invoke<ProjectTrustState>("project_trust", { projectId }),
   setProjectPermission: (projectId, permission, allowed) =>

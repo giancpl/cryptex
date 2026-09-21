@@ -72,6 +72,37 @@ pub struct ToolchainBinary {
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "../../../../src/bindings/")]
+pub enum LatexEngine {
+    PdfLatex,
+    XeLatex,
+    LuaLatex,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
+pub enum ResolutionProvenance {
+    ProjectPreference,
+    MagicComment,
+    Detected,
+    Default,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
+pub struct BuildConfiguration {
+    pub api_version: u16,
+    pub project_id: String,
+    pub root_document: String,
+    pub root_provenance: ResolutionProvenance,
+    pub engine: LatexEngine,
+    pub engine_provenance: ResolutionProvenance,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
 pub enum BuildPermission {
     LatexmkRc,
     ShellEscape,

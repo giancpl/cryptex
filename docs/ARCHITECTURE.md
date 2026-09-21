@@ -41,3 +41,12 @@ independent, denied by default, described explicitly through typed DTOs, and
 revocable together or separately. Commands accept only currently open project
 identities; build construction must query the backend trust service and cannot rely
 on frontend state.
+
+## Build configuration resolution
+
+E1 resolves a build to one validated project-relative root and one closed engine enum:
+`pdfLatex`, `xeLatex`, or `luaLatex`. Explicit project preferences stored outside
+the source tree take precedence; otherwise a supported TeX magic comment is used,
+then pdfLaTeX is the default. Both decisions carry provenance. Ambiguous roots,
+unsupported engines, and magic values containing flags or command fragments fail
+before process request construction.

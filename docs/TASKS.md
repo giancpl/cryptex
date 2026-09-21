@@ -43,7 +43,11 @@
   separate denied-by-default permissions for project `.latexmkrc` and shell escape,
   exact consequence text in the typed API, revocation, restrictive file permissions,
   and backend authorization checks usable by build request construction.
-- Next: E1 engine and root resolution.
+- E1: implemented with deterministic C5 root reuse, explicit ambiguity errors,
+  pdfLaTeX/XeLaTeX/LuaLaTeX as a closed typed engine set, safe TeX magic-comment
+  parsing, externally stored project engine preferences, and provenance for both
+  effective root and engine. Unsupported values and command fragments are rejected.
+- Next: E2 safe `latexmk` request construction.
 
 The authoritative sequence is:
 
@@ -58,6 +62,6 @@ The authoritative sequence is:
 9. B3 fingerprinted reads and atomic writes.
 10. C1 CodeMirror and document tabs.
 
-Continue with E1-E4, F1-F6, G1-G4, H1-H5, I1-I5, and J1-J6 in
+Continue with E2-E4, F1-F6, G1-G4, H1-H5, I1-I5, and J1-J6 in
 dependency order. M8-M10 remain blocked until J6. Each task is an independently
 reviewable change with tests and the global acceptance rules.

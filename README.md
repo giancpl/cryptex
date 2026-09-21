@@ -40,5 +40,5 @@ decision, measured size, licensing gates, and remaining clean-machine checks.
 
 M0 and local project editing through C6 are implemented. D1-D3 have frozen the
 managed TeX Live direction, verified installed toolchains, added restricted process
-execution, and implemented explicit build permissions. E1 engine/root resolution is
-next. No production release exists.
+execution, explicit build permissions, and deterministic root/engine resolution. E2
+safe `latexmk` request construction is next. No production release exists.

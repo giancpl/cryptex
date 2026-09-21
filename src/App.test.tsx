@@ -72,6 +72,7 @@ describe("App", () => {
         .mockResolvedValue(rootCandidates("a".repeat(64))),
       ...recoveryMocks(),
       ...trustMocks(),
+      ...buildMocks(),
       onProjectFileChange: vi.fn().mockResolvedValue(() => undefined),
     };
     render(
@@ -381,6 +382,7 @@ function conflictClient(
     setRootDocument: vi.fn().mockResolvedValue(rootCandidates(projectId)),
     ...recoveryMocks(),
     ...trustMocks(),
+    ...buildMocks(),
     onProjectFileChange: vi
       .fn()
       .mockImplementation((listener: (change: ProjectFileChange) => void) => {
@@ -401,6 +403,13 @@ function rootCandidates(projectId: string) {
       },
     ],
     selected: "main.tex",
+  };
+}
+
+function buildMocks() {
+  return {
+    resolveBuildConfiguration: vi.fn(),
+    setProjectEngine: vi.fn(),
   };
 }
 

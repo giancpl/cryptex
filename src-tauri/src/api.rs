@@ -1,12 +1,13 @@
 use cryptex_core::{
     api::{
-        API_VERSION, ApiError, BuildPermission, FileTreePage, HealthResponse, ProjectSummary,
-        ProjectTrustState, RecoveryInventory, RecoverySnapshot, RootDocumentCandidates,
-        TextDocument, ToolchainReadiness, WriteResult,
+        API_VERSION, ApiError, BuildConfiguration, BuildPermission, FileTreePage, HealthResponse,
+        LatexEngine, ProjectSummary, ProjectTrustState, RecoveryInventory, RecoverySnapshot,
+        RootDocumentCandidates, TextDocument, ToolchainReadiness, WriteResult,
     },
+    build::{BuildResolutionError, resolve_build_configuration as resolve_configuration},
     project::{ProjectError, ProjectService},
     recovery::{RecoveryError, RecoveryService},
-    settings::{RootPreferences, SettingsError},
+    settings::{EnginePreferences, RootPreferences, SettingsError},
     toolchain::ToolchainService,
     trust::{TrustError, TrustService},
     watcher::ProjectWatcher,
@@ -16,6 +17,7 @@ use tauri::{AppHandle, Emitter, State};
 
 pub type ProjectWatchers = Mutex<HashMap<String, ProjectWatcher>>;
 pub type RootPreferenceState = Mutex<RootPreferences>;
+pub type EnginePreferenceState = Mutex<EnginePreferences>;
 pub type TrustState = Mutex<TrustService>;
 
 #[tauri::command]
@@ -167,6 +169,52 @@ pub fn set_root_document(
 }
 
 #[tauri::command(rename_all = "camelCase")]
+pub fn resolve_build_configuration(
+    project_id: String,
+    projects: State<'_, Mutex<ProjectService>>,
+    roots: State<'_, RootPreferenceState>,
+    engines: State<'_, EnginePreferenceState>,
+) -> Result<BuildConfiguration, ApiError> {
+    let preferred_root = roots
+        .lock()
+        .map_err(|_| internal_error("root preference lock is poisoned"))?
+        .get(&project_id)
+        .map(str::to_owned);
+    let preferred_engine = engines
+        .lock()
+        .map_err(|_| internal_error("engine preference lock is poisoned"))?
+        .get(&project_id);
+    resolve_configuration(
+        &projects
+            .lock()
+            .map_err(|_| internal_error("project service lock is poisoned"))?,
+        &project_id,
+        preferred_root.as_deref(),
+        preferred_engine,
+    )
+    .map_err(build_resolution_error)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn set_project_engine(
+    project_id: String,
+    engine: Option<LatexEngine>,
+    projects: State<'_, Mutex<ProjectService>>,
+    engines: State<'_, EnginePreferenceState>,
+) -> Result<(), ApiError> {
+    projects
+        .lock()
+        .map_err(|_| internal_error("project service lock is poisoned"))?
+        .require_open(&project_id)
+        .map_err(project_error)?;
+    engines
+        .lock()
+        .map_err(|_| internal_error("engine preference lock is poisoned"))?
+        .set(&project_id, engine)
+        .map_err(settings_error)
+}
+
+#[tauri::command(rename_all = "camelCase")]
 pub fn project_trust(
     project_id: String,
     projects: State<'_, Mutex<ProjectService>>,
@@ -259,6 +307,21 @@ pub fn delete_recovery_snapshot(
     recovery
         .delete(&project_id, &relative_path)
         .map_err(recovery_error)
+}
+
+fn build_resolution_error(error: BuildResolutionError) -> ApiError {
+    let code = match &error {
+        BuildResolutionError::NoRootDocument => "NO_ROOT_DOCUMENT",
+        BuildResolutionError::AmbiguousRootDocument => "AMBIGUOUS_ROOT_DOCUMENT",
+        BuildResolutionError::UnsupportedEngine(_) => "UNSUPPORTED_TEX_ENGINE",
+        BuildResolutionError::Project(_) => "BUILD_PROJECT_ERROR",
+    };
+    ApiError {
+        api_version: API_VERSION,
+        code: code.to_owned(),
+        message: error.to_string(),
+        retryable: false,
+    }
 }
 
 fn recovery_error(error: RecoveryError) -> ApiError {
