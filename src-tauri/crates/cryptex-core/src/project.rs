@@ -137,6 +137,14 @@ impl ProjectService {
         Ok(summary)
     }
 
+    pub fn require_open(&self, project_id: &str) -> Result<(), ProjectError> {
+        let id = ProjectId::parse(project_id)?;
+        self.projects
+            .contains_key(&id)
+            .then_some(())
+            .ok_or(ProjectError::UnknownProject)
+    }
+
     pub fn list_directory(
         &self,
         project_id: &str,

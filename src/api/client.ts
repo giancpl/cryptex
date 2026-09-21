@@ -1,12 +1,14 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
+import type { BuildPermission } from "../bindings/BuildPermission";
 import type { FileTreePage } from "../bindings/FileTreePage";
 import type { HealthResponse } from "../bindings/HealthResponse";
 import type { RecoveryInventory } from "../bindings/RecoveryInventory";
 import type { RecoverySnapshot } from "../bindings/RecoverySnapshot";
 import type { RootDocumentCandidates } from "../bindings/RootDocumentCandidates";
 import type { ProjectSummary } from "../bindings/ProjectSummary";
+import type { ProjectTrustState } from "../bindings/ProjectTrustState";
 import type { ProjectFileChange } from "../bindings/ProjectFileChange";
 import type { TextDocument } from "../bindings/TextDocument";
 import type { ToolchainReadiness } from "../bindings/ToolchainReadiness";
@@ -34,6 +36,14 @@ export interface BackendClient {
     projectId: string,
     relativePath: string,
   ): Promise<RootDocumentCandidates>;
+  projectTrust(this: void, projectId: string): Promise<ProjectTrustState>;
+  setProjectPermission(
+    this: void,
+    projectId: string,
+    permission: BuildPermission,
+    allowed: boolean,
+  ): Promise<ProjectTrustState>;
+  revokeProjectTrust(this: void, projectId: string): Promise<ProjectTrustState>;
   storeRecoverySnapshot(
     this: void,
     projectId: string,
@@ -78,6 +88,16 @@ export const backendClient: BackendClient = {
       projectId,
       relativePath,
     }),
+  projectTrust: (projectId) =>
+    invoke<ProjectTrustState>("project_trust", { projectId }),
+  setProjectPermission: (projectId, permission, allowed) =>
+    invoke<ProjectTrustState>("set_project_permission", {
+      projectId,
+      permission,
+      allowed,
+    }),
+  revokeProjectTrust: (projectId) =>
+    invoke<ProjectTrustState>("revoke_project_trust", { projectId }),
   storeRecoverySnapshot: (
     projectId,
     relativePath,

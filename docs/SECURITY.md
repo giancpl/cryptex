@@ -15,6 +15,9 @@ LaTeX projects are untrusted input and may attempt filesystem or process access.
 The D3 supervisor implements the fixed-executable, argument-array, cleared-environment,
 bounded-output, timeout/cancellation, resource-limit, and process-group controls. It
 is an internal backend service and is not exposed as a general process command.
+Project `.latexmkrc` and shell escape permissions are stored independently, denied
+by default, and checked from backend state keyed by canonical project identity. The
+frontend can request or revoke permission but cannot assert trusted build flags.
 
 Restricted TeX is not a proven sandbox. OS sandboxing is a release investigation,
 not a reason to weaken the controls above.

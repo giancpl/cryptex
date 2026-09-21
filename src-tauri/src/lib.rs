@@ -2,7 +2,7 @@ mod api;
 
 use cryptex_core::{
     project::ProjectService, recovery::RecoveryService, settings::RootPreferences,
-    toolchain::ToolchainService,
+    toolchain::ToolchainService, trust::TrustService,
 };
 use std::{collections::HashMap, sync::Mutex};
 use tauri::Manager;
@@ -16,6 +16,9 @@ pub fn run() {
         .setup(|app| {
             let settings = app.path().app_config_dir()?.join("root-documents.json");
             app.manage(Mutex::new(RootPreferences::load(settings)?));
+            app.manage(Mutex::new(TrustService::load(
+                app.path().app_config_dir()?.join("project-trust.json"),
+            )?));
             app.manage(RecoveryService::new(
                 app.path().app_data_dir()?.join("recovery"),
             ));
@@ -33,6 +36,9 @@ pub fn run() {
             api::write_text_file,
             api::detect_root_documents,
             api::set_root_document,
+            api::project_trust,
+            api::set_project_permission,
+            api::revoke_project_trust,
             api::store_recovery_snapshot,
             api::list_recovery_snapshots,
             api::delete_recovery_snapshot

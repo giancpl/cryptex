@@ -32,3 +32,12 @@ environment, supplies only the managed binary directory and stable locale/timezo
 streams a bounded combined stdout/stderr budget, and enforces timeout, cancellation,
 and resource limits. On Linux, each child starts in a fresh process group so
 termination covers descendants.
+
+## Project build permissions
+
+D4 stores build permissions in `app_config/project-trust.json`, keyed by the
+canonical project identity. Project `.latexmkrc` execution and TeX shell escape are
+independent, denied by default, described explicitly through typed DTOs, and
+revocable together or separately. Commands accept only currently open project
+identities; build construction must query the backend trust service and cannot rely
+on frontend state.

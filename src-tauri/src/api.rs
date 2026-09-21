@@ -1,12 +1,14 @@
 use cryptex_core::{
     api::{
-        API_VERSION, ApiError, FileTreePage, HealthResponse, ProjectSummary, RecoveryInventory,
-        RecoverySnapshot, RootDocumentCandidates, TextDocument, ToolchainReadiness, WriteResult,
+        API_VERSION, ApiError, BuildPermission, FileTreePage, HealthResponse, ProjectSummary,
+        ProjectTrustState, RecoveryInventory, RecoverySnapshot, RootDocumentCandidates,
+        TextDocument, ToolchainReadiness, WriteResult,
     },
     project::{ProjectError, ProjectService},
     recovery::{RecoveryError, RecoveryService},
     settings::{RootPreferences, SettingsError},
     toolchain::ToolchainService,
+    trust::{TrustError, TrustService},
     watcher::ProjectWatcher,
 };
 use std::{collections::HashMap, path::PathBuf, sync::Mutex};
@@ -14,6 +16,7 @@ use tauri::{AppHandle, Emitter, State};
 
 pub type ProjectWatchers = Mutex<HashMap<String, ProjectWatcher>>;
 pub type RootPreferenceState = Mutex<RootPreferences>;
+pub type TrustState = Mutex<TrustService>;
 
 #[tauri::command]
 pub fn health() -> HealthResponse {
@@ -164,6 +167,62 @@ pub fn set_root_document(
 }
 
 #[tauri::command(rename_all = "camelCase")]
+pub fn project_trust(
+    project_id: String,
+    projects: State<'_, Mutex<ProjectService>>,
+    trust: State<'_, TrustState>,
+) -> Result<ProjectTrustState, ApiError> {
+    projects
+        .lock()
+        .map_err(|_| internal_error("project service lock is poisoned"))?
+        .require_open(&project_id)
+        .map_err(project_error)?;
+    trust
+        .lock()
+        .map_err(|_| internal_error("trust service lock is poisoned"))?
+        .state(&project_id)
+        .map_err(trust_error)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn set_project_permission(
+    project_id: String,
+    permission: BuildPermission,
+    allowed: bool,
+    projects: State<'_, Mutex<ProjectService>>,
+    trust: State<'_, TrustState>,
+) -> Result<ProjectTrustState, ApiError> {
+    projects
+        .lock()
+        .map_err(|_| internal_error("project service lock is poisoned"))?
+        .require_open(&project_id)
+        .map_err(project_error)?;
+    trust
+        .lock()
+        .map_err(|_| internal_error("trust service lock is poisoned"))?
+        .set(&project_id, permission, allowed)
+        .map_err(trust_error)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn revoke_project_trust(
+    project_id: String,
+    projects: State<'_, Mutex<ProjectService>>,
+    trust: State<'_, TrustState>,
+) -> Result<ProjectTrustState, ApiError> {
+    projects
+        .lock()
+        .map_err(|_| internal_error("project service lock is poisoned"))?
+        .require_open(&project_id)
+        .map_err(project_error)?;
+    trust
+        .lock()
+        .map_err(|_| internal_error("trust service lock is poisoned"))?
+        .revoke(&project_id)
+        .map_err(trust_error)
+}
+
+#[tauri::command(rename_all = "camelCase")]
 pub fn store_recovery_snapshot(
     project_id: String,
     relative_path: String,
@@ -207,6 +266,15 @@ fn recovery_error(error: RecoveryError) -> ApiError {
     ApiError {
         api_version: API_VERSION,
         code: "RECOVERY_ERROR".to_owned(),
+        message: error.to_string(),
+        retryable,
+    }
+}
+fn trust_error(error: TrustError) -> ApiError {
+    let retryable = matches!(&error, TrustError::Io(_));
+    ApiError {
+        api_version: API_VERSION,
+        code: "TRUST_ERROR".to_owned(),
         message: error.to_string(),
         retryable,
     }

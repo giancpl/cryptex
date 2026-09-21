@@ -39,7 +39,11 @@
   environment, bounded output streaming, timeout/cancellation, Linux resource
   limits, and whole-process-group termination. No generic execution command is
   exposed to the frontend.
-- Next: D4 trust and compilation permissions.
+- D4: implemented with per-canonical-project trust records outside source trees,
+  separate denied-by-default permissions for project `.latexmkrc` and shell escape,
+  exact consequence text in the typed API, revocation, restrictive file permissions,
+  and backend authorization checks usable by build request construction.
+- Next: E1 engine and root resolution.
 
 The authoritative sequence is:
 
@@ -54,6 +58,6 @@ The authoritative sequence is:
 9. B3 fingerprinted reads and atomic writes.
 10. C1 CodeMirror and document tabs.
 
-Continue with D4, E1-E4, F1-F6, G1-G4, H1-H5, I1-I5, and J1-J6 in
+Continue with E1-E4, F1-F6, G1-G4, H1-H5, I1-I5, and J1-J6 in
 dependency order. M8-M10 remain blocked until J6. Each task is an independently
 reviewable change with tests and the global acceptance rules.
