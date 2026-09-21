@@ -47,7 +47,13 @@
   pdfLaTeX/XeLaTeX/LuaLaTeX as a closed typed engine set, safe TeX magic-comment
   parsing, externally stored project engine preferences, and provenance for both
   effective root and engine. Unsupported values and command fragments are rejected.
-- Next: E2 safe `latexmk` request construction.
+- E2: implemented as a pure, inspectable request builder targeting only the named
+  managed `latexmk` executable. It fixes engine, nonstop/error, SyncTeX, recorder,
+  bibliography, output-directory, and explicit shell-escape flags; prefixes root
+  filenames to prevent option injection; keeps artifacts in a validated app-cache
+  directory; and loads an in-root `.latexmkrc` only with backend permission while
+  suppressing every automatic rc file.
+- Next: E3 build scheduler and execution.
 
 The authoritative sequence is:
 
@@ -62,6 +68,6 @@ The authoritative sequence is:
 9. B3 fingerprinted reads and atomic writes.
 10. C1 CodeMirror and document tabs.
 
-Continue with E2-E4, F1-F6, G1-G4, H1-H5, I1-I5, and J1-J6 in
+Continue with E3-E4, F1-F6, G1-G4, H1-H5, I1-I5, and J1-J6 in
 dependency order. M8-M10 remain blocked until J6. Each task is an independently
 reviewable change with tests and the global acceptance rules.

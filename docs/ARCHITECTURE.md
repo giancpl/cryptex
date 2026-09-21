@@ -50,3 +50,14 @@ the source tree take precedence; otherwise a supported TeX magic comment is used
 then pdfLaTeX is the default. Both decisions carry provenance. Ambiguous roots,
 unsupported engines, and magic values containing flags or command fragments fail
 before process request construction.
+
+## Latexmk request construction
+
+E2 produces an internal, inspectable request for the named managed `latexmk`
+executable; it never accepts an executable or free-form command from the frontend.
+The builder uses argument arrays, sends all generated files to a canonical per-project
+app-cache directory, requests SyncTeX and recorder output, and records the expected
+PDF, SyncTeX, log, recorder, and latexmk database paths. Automatic rc discovery is
+always disabled with `-norc`; an in-root `.latexmkrc` is loaded explicitly with
+`-r` only when backend trust allows it. Later fixed arguments select the resolved
+engine and explicit shell-escape mode.

@@ -19,7 +19,10 @@ Project `.latexmkrc` and shell escape permissions are stored independently, deni
 by default, and checked from backend state keyed by canonical project identity. The
 frontend can request or revoke permission but cannot assert trusted build flags.
 Build engines cross the backend boundary as a closed enum; TeX magic comments cannot
-supply executable paths, flags, shell syntax, or arbitrary engine names.
+supply executable paths, flags, shell syntax, or arbitrary engine names. The E2
+request builder always names managed `latexmk`, suppresses automatic rc discovery,
+validates any explicitly permitted project rc inside the root, prefixes root filenames
+so they cannot become options, and derives shell-escape flags only from backend trust.
 
 Restricted TeX is not a proven sandbox. OS sandboxing is a release investigation,
 not a reason to weaken the controls above.

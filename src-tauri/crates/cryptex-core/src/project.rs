@@ -145,6 +145,14 @@ impl ProjectService {
             .ok_or(ProjectError::UnknownProject)
     }
 
+    pub fn project_root(&self, project_id: &str) -> Result<PathBuf, ProjectError> {
+        let id = ProjectId::parse(project_id)?;
+        self.projects
+            .get(&id)
+            .map(|project| project.canonical_path().to_path_buf())
+            .ok_or(ProjectError::UnknownProject)
+    }
+
     pub fn list_directory(
         &self,
         project_id: &str,
