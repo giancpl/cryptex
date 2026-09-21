@@ -248,6 +248,63 @@ input {
   white-space: pre-wrap;
 }
 
+.build-panel {
+  border-block: 1px solid #2b343e;
+  margin: 14px 0;
+  padding: 12px 0;
+}
+.build-heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+.build-heading h3 {
+  font-size: 0.78rem;
+  margin: 0;
+  text-transform: uppercase;
+}
+.build-actions {
+  display: flex;
+  gap: 6px;
+}
+.build-actions button {
+  background: #283640;
+  border: 1px solid #40515d;
+  border-radius: 4px;
+  color: #e8edf2;
+  cursor: pointer;
+}
+.build-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.build-status {
+  display: grid;
+  font-size: 0.78rem;
+  gap: 3px;
+  margin-top: 10px;
+}
+.build-status span {
+  color: #82909f;
+}
+.build-panel details {
+  margin-top: 8px;
+}
+.build-panel summary {
+  color: #aeb9c4;
+  cursor: pointer;
+  font-size: 0.78rem;
+}
+.build-log {
+  background: #090c0f;
+  border: 1px solid #2b343e;
+  font-size: 0.7rem;
+  max-height: 14rem;
+  overflow: auto;
+  padding: 8px;
+  white-space: pre-wrap;
+}
+
 .root-selection {
   display: grid;
   gap: 5px;

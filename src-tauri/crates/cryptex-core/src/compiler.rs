@@ -1,6 +1,6 @@
 use crate::{
     api::{BuildConfiguration, BuildPermission, LatexEngine},
-    project::{ProjectError, ProjectService},
+    project::{ProjectError, ProjectId, ProjectService},
     trust::{TrustError, TrustService},
 };
 use std::{
@@ -47,6 +47,24 @@ impl LatexmkRequestBuilder {
             return Err(BuildRequestError::InvalidBuildCache);
         }
         Ok(Self { build_cache_root })
+    }
+
+    pub fn clean(&self, project_id: &str) -> Result<(), BuildRequestError> {
+        let project_id = ProjectId::parse(project_id)?;
+        let target = self.build_cache_root.join(project_id.as_str());
+        let metadata = match fs::symlink_metadata(&target) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(error) => return Err(BuildRequestError::Io(error)),
+        };
+        if metadata.file_type().is_symlink() || !metadata.is_dir() {
+            return Err(BuildRequestError::InvalidBuildCache);
+        }
+        let resolved = target.canonicalize().map_err(BuildRequestError::Io)?;
+        if !resolved.starts_with(&self.build_cache_root) || resolved == self.build_cache_root {
+            return Err(BuildRequestError::InvalidBuildCache);
+        }
+        fs::remove_dir_all(resolved).map_err(BuildRequestError::Io)
     }
 
     pub fn build(
@@ -356,6 +374,32 @@ mod tests {
                 Err(BuildRequestError::UnsafeProjectRc)
             ));
         }
+    }
+
+    #[test]
+    fn clean_is_confined_to_the_exact_project_cache() {
+        let fixture = fixture("main.tex", LatexEngine::PdfLatex);
+        let request = fixture
+            .builder
+            .build(
+                &fixture.projects,
+                &fixture.trust,
+                fixture.configuration.clone(),
+            )
+            .unwrap();
+        fs::write(request.artifacts.directory.join("main.aux"), "generated").unwrap();
+        let sibling = fixture._state.path().join("keep.txt");
+        fs::write(&sibling, "keep").unwrap();
+        fixture
+            .builder
+            .clean(&fixture.configuration.project_id)
+            .unwrap();
+        assert!(!request.artifacts.directory.exists());
+        assert!(sibling.exists());
+        assert!(matches!(
+            fixture.builder.clean("../outside"),
+            Err(BuildRequestError::Project(_))
+        ));
     }
 
     #[test]

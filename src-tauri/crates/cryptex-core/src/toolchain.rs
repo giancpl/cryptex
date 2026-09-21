@@ -61,6 +61,76 @@ impl ToolchainService {
         })
     }
 
+    pub fn verified_executable(&self, name: &str) -> Result<PathBuf, String> {
+        if !REQUIRED_BINARIES.contains(&name) {
+            return Err("requested executable is not part of the managed toolchain".to_owned());
+        }
+        let readiness = self.inspect()?;
+        if readiness.status != ToolchainStatus::Ready {
+            return Err(readiness
+                .message
+                .unwrap_or_else(|| "managed toolchain is not ready".to_owned()));
+        }
+        let active: ActiveToolchain = serde_json::from_slice(
+            &fs::read(self.root.join("active.json"))
+                .map_err(|error| format!("unable to reread active toolchain: {error}"))?,
+        )
+        .map_err(|error| format!("active toolchain record is invalid: {error}"))?;
+        validate_version(active.format_version, "active record")?;
+        validate_id(&active.toolchain_id)?;
+        let managed_root = self
+            .root
+            .canonicalize()
+            .map_err(|error| format!("managed toolchain root is unavailable: {error}"))?;
+        let version_root = self
+            .root
+            .join("versions")
+            .join(&active.toolchain_id)
+            .canonicalize()
+            .map_err(|error| format!("active toolchain directory is unavailable: {error}"))?;
+        if !version_root.starts_with(&managed_root) {
+            return Err("active toolchain resolves outside the managed root".to_owned());
+        }
+        let manifest: ToolchainManifest = serde_json::from_slice(
+            &fs::read(version_root.join("manifest.json"))
+                .map_err(|error| format!("unable to reread toolchain manifest: {error}"))?,
+        )
+        .map_err(|error| format!("toolchain manifest is invalid: {error}"))?;
+        if manifest.toolchain_id != active.toolchain_id || manifest.platform != supported_platform()
+        {
+            return Err("active toolchain identity changed during verification".to_owned());
+        }
+        let executable = version_root
+            .join("bin")
+            .join(&manifest.platform)
+            .join(name)
+            .canonicalize()
+            .map_err(|error| format!("managed executable {name} is unavailable: {error}"))?;
+        if !executable.starts_with(&version_root) || !executable.is_file() {
+            return Err(format!(
+                "managed executable {name} escapes the toolchain root"
+            ));
+        }
+        let expected = manifest
+            .binaries
+            .get(name)
+            .ok_or_else(|| format!("managed executable {name} is absent from the manifest"))?;
+        validate_digest(expected)?;
+        let actual =
+            format!(
+                "{:x}",
+                Sha256::digest(fs::read(&executable).map_err(|error| format!(
+                    "unable to hash managed executable {name}: {error}"
+                ))?)
+            );
+        if actual != *expected {
+            return Err(format!(
+                "managed executable {name} failed integrity verification"
+            ));
+        }
+        Ok(executable)
+    }
+
     fn inspect(&self) -> Result<ToolchainReadiness, String> {
         let bytes = match fs::read(self.root.join("active.json")) {
             Ok(bytes) => bytes,
@@ -315,6 +385,17 @@ mod tests {
         );
         assert_eq!(status.binaries.len(), REQUIRED_BINARIES.len());
         assert_eq!(status.texlive_revision, Some(80315));
+    }
+
+    #[test]
+    fn resolves_only_a_freshly_verified_manifest_executable() {
+        let (_temp, service) = fixture();
+        let executable = service.verified_executable("latexmk").unwrap();
+        assert_eq!(
+            executable.file_name().and_then(|name| name.to_str()),
+            Some("latexmk")
+        );
+        assert!(service.verified_executable("sh").is_err());
     }
 
     #[test]

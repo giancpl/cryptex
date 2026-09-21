@@ -339,6 +339,41 @@ describe("App", () => {
       { timeout: 1_500 },
     );
   });
+
+  it("starts an explicit build and exposes its terminal status and cleanup", async () => {
+    const projectId = "8".repeat(64);
+    const client = conflictClient(projectId, vi.fn(), () => undefined);
+    client.requestBuild = vi.fn().mockResolvedValue({
+      apiVersion: 1,
+      projectId,
+      operationId: "build-9",
+      phase: "succeeded",
+      reason: "explicit",
+      rootDocument: "main.tex",
+      engine: "pdfLatex",
+      elapsedMs: 1250n,
+      exitCode: 0,
+      logTruncated: false,
+      pdfAvailable: true,
+      lastSuccessfulOperationId: "build-9",
+      message: null,
+    });
+    render(
+      <App client={client} pickDirectory={() => Promise.resolve("/paper")} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open folder" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Compile" }));
+
+    await waitFor(() =>
+      expect(client.requestBuild).toHaveBeenCalledWith(projectId, "explicit"),
+    );
+    expect(await screen.findByText("Build succeeded in 1.25s")).toBeVisible();
+    expect(screen.getByText("Last successful PDF is available.")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Clean" }));
+    await waitFor(() =>
+      expect(client.cleanBuildArtifacts).toHaveBeenCalledWith(projectId),
+    );
+  });
 });
 
 function conflictClient(
@@ -410,6 +445,25 @@ function buildMocks() {
   return {
     resolveBuildConfiguration: vi.fn(),
     setProjectEngine: vi.fn(),
+    requestBuild: vi.fn().mockResolvedValue({
+      apiVersion: 1,
+      projectId: "a".repeat(64),
+      operationId: "build-1",
+      phase: "running" as const,
+      reason: "explicit" as const,
+      rootDocument: "main.tex",
+      engine: "pdfLatex" as const,
+      elapsedMs: null,
+      exitCode: null,
+      logTruncated: false,
+      pdfAvailable: false,
+      lastSuccessfulOperationId: null,
+      message: null,
+    }),
+    cancelBuild: vi.fn().mockResolvedValue(true),
+    cleanBuildArtifacts: vi.fn().mockResolvedValue(undefined),
+    onBuildState: vi.fn().mockResolvedValue(() => undefined),
+    onBuildOutput: vi.fn().mockResolvedValue(() => undefined),
   };
 }
 

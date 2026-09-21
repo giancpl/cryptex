@@ -72,6 +72,56 @@ pub struct ToolchainBinary {
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "../../../../src/bindings/")]
+pub enum BuildPhase {
+    Queued,
+    Running,
+    Succeeded,
+    Failed,
+    Cancelled,
+    TimedOut,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
+pub enum BuildOutputStream {
+    Stdout,
+    Stderr,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
+pub struct BuildState {
+    pub api_version: u16,
+    pub project_id: String,
+    pub operation_id: OperationId,
+    pub phase: BuildPhase,
+    pub reason: BuildReason,
+    pub root_document: String,
+    pub engine: LatexEngine,
+    pub elapsed_ms: Option<u64>,
+    pub exit_code: Option<i32>,
+    pub log_truncated: bool,
+    pub pdf_available: bool,
+    pub last_successful_operation_id: Option<OperationId>,
+    pub message: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
+pub struct BuildOutput {
+    pub api_version: u16,
+    pub project_id: String,
+    pub operation_id: OperationId,
+    pub stream: BuildOutputStream,
+    pub text: String,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
 pub enum BuildReason {
     Save,
     Explicit,

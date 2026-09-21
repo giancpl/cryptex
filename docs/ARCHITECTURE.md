@@ -71,3 +71,10 @@ and suppresses its eventual result; saves arriving behind a queued explicit buil
 coalesce into it. Monotonic operation IDs scope cancellation and completion, and a
 completion for any non-active ID is stale by definition. Different projects remain
 independent and may execute concurrently.
+
+E4 resolves and re-verifies only the managed `latexmk` executable before execution,
+then connects scheduled requests to the restricted supervisor. Typed build-state and
+bounded output events drive the UI without exposing process primitives. Successful
+artifacts remain in the canonical per-project app-cache directory; failed builds do
+not erase last-success metadata, and cleanup can remove only the exact validated cache
+directory while no build is active.

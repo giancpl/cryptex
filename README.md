@@ -41,5 +41,6 @@ decision, measured size, licensing gates, and remaining clean-machine checks.
 M0 and local project editing through C6 are implemented. D1-D3 have frozen the
 managed TeX Live direction, verified installed toolchains, added restricted process
 execution, explicit build permissions, deterministic root/engine resolution, and safe
-`latexmk` request construction, and deterministic build scheduling. E4 build-state UI
-and artifact lifecycle are next. No production release exists.
+`latexmk` request construction, deterministic scheduling, supervised builds, streamed
+logs, visible build state, cancellation, and cache-confined cleanup. Structured LaTeX
+diagnostics (F1) are next. No production release exists.

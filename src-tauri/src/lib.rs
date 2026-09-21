@@ -1,4 +1,5 @@
 mod api;
+mod builds;
 
 use cryptex_core::{
     project::ProjectService,
@@ -31,6 +32,9 @@ pub fn run() {
             app.manage(ToolchainService::new(
                 app.path().app_data_dir()?.join("toolchains"),
             ));
+            app.manage(builds::BuildRuntime::new(
+                app.path().app_cache_dir()?.join("builds"),
+            )?);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -49,7 +53,10 @@ pub fn run() {
             api::revoke_project_trust,
             api::store_recovery_snapshot,
             api::list_recovery_snapshots,
-            api::delete_recovery_snapshot
+            api::delete_recovery_snapshot,
+            builds::request_build,
+            builds::cancel_build,
+            builds::clean_build_artifacts
         ])
         .run(tauri::generate_context!())
         .expect("failed to run CrypTex");

@@ -56,7 +56,10 @@
 - E3: implemented as a deterministic generic scheduler with one active build per
   project, monotonic operation IDs, save-request coalescing, explicit-build priority,
   cancellation tokens, independent parallel projects, and stale-result suppression.
-- Next: E4 build-state UI, execution wiring, and artifact lifecycle.
+- E4: implemented with verified managed-executable resolution, scheduler-to-supervisor
+  wiring, bounded typed output events, visible queued/running/terminal states, explicit
+  cancellation, last-success metadata, and cache-confined cleanup.
+- Next: F1 structured LaTeX log parsing.
 
 The authoritative sequence is:
 
@@ -71,6 +74,6 @@ The authoritative sequence is:
 9. B3 fingerprinted reads and atomic writes.
 10. C1 CodeMirror and document tabs.
 
-Continue with E4, F1-F6, G1-G4, H1-H5, I1-I5, and J1-J6 in
+Continue with F1-F6, G1-G4, H1-H5, I1-I5, and J1-J6 in
 dependency order. M8-M10 remain blocked until J6. Each task is an independently
 reviewable change with tests and the global acceptance rules.

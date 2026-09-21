@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { EditorState } from "@codemirror/state";
+import type { BuildOutput } from "./bindings/BuildOutput";
+import type { BuildState } from "./bindings/BuildState";
 import type { FileTreeEntry } from "./bindings/FileTreeEntry";
 import type { FileTreePage } from "./bindings/FileTreePage";
 import type { RecoveryInventory } from "./bindings/RecoveryInventory";
@@ -60,8 +62,11 @@ export function App({
   const [recoveryDisk, setRecoveryDisk] = useState<TextDocument | null>(null);
   const [rootDocuments, setRootDocuments] =
     useState<RootDocumentCandidates | null>(null);
+  const [buildState, setBuildState] = useState<BuildState | null>(null);
+  const [buildLog, setBuildLog] = useState("");
   const documentsRef = useRef(documents);
   const directoriesRef = useRef(directories);
+  const buildOperationRef = useRef<string | null>(null);
   const saveQueues = useRef(new Map<string, Promise<void>>());
   const recoveryTimers = useRef(
     new Map<string, { revision: number; timer: number }>(),
@@ -335,6 +340,42 @@ export function App({
   }, [client, project, reconcileExternalDocument]);
 
   useEffect(() => {
+    if (!project) return;
+    let disposed = false;
+    const unsubscribers: Array<() => void> = [];
+    void Promise.all([
+      client.onBuildState((state) => {
+        if (disposed || state.projectId !== project.projectId) return;
+        setBuildState((current) => {
+          if (current?.operationId !== state.operationId) setBuildLog("");
+          buildOperationRef.current = state.operationId;
+          return state;
+        });
+      }),
+      client.onBuildOutput((output: BuildOutput) => {
+        if (
+          disposed ||
+          output.projectId !== project.projectId ||
+          output.operationId !== buildOperationRef.current
+        )
+          return;
+        setBuildLog((current) => (current + output.text).slice(-200_000));
+      }),
+    ])
+      .then((stops) => {
+        if (disposed) stops.forEach((stop) => stop());
+        else unsubscribers.push(...stops);
+      })
+      .catch((reason: unknown) => {
+        if (!disposed) setError(errorMessage(reason));
+      });
+    return () => {
+      disposed = true;
+      unsubscribers.forEach((stop) => stop());
+    };
+  }, [client, project]);
+
+  useEffect(() => {
     for (const [path, document] of Object.entries(documents)) {
       const scheduled = autosaveTimers.current.get(path);
       if (document.saveStatus !== "dirty") {
@@ -467,6 +508,9 @@ export function App({
       setExpanded(new Set([""]));
       setDocuments({});
       setActivePath(null);
+      setBuildState(null);
+      buildOperationRef.current = null;
+      setBuildLog("");
     } catch (reason) {
       setError(errorMessage(reason));
     } finally {
@@ -553,6 +597,55 @@ export function App({
       setError(errorMessage(reason));
     }
   }
+  async function requestBuild() {
+    if (!project || !rootDocuments?.selected) return;
+    if (
+      Object.values(documentsRef.current).some(
+        (document) => document.saveStatus === "conflict",
+      )
+    ) {
+      setError("Resolve external file conflicts before compiling.");
+      return;
+    }
+    setError(null);
+    try {
+      await Promise.all(
+        Object.keys(documentsRef.current).map((path) => saveDocument(path)),
+      );
+      const state = await client.requestBuild(project.projectId, "explicit");
+      buildOperationRef.current = state.operationId;
+      setBuildState(state);
+    } catch (reason) {
+      setError(errorMessage(reason));
+    }
+  }
+
+  async function cancelBuild() {
+    if (!project || !buildState) return;
+    try {
+      const cancelled = await client.cancelBuild(
+        project.projectId,
+        buildState.operationId,
+      );
+      if (cancelled && buildState.phase === "queued")
+        setBuildState({ ...buildState, phase: "cancelled" });
+    } catch (reason) {
+      setError(errorMessage(reason));
+    }
+  }
+
+  async function cleanBuildArtifacts() {
+    if (!project) return;
+    try {
+      await client.cleanBuildArtifacts(project.projectId);
+      setBuildState(null);
+      buildOperationRef.current = null;
+      setBuildLog("");
+    } catch (reason) {
+      setError(errorMessage(reason));
+    }
+  }
+
   async function toggleDirectory(path: string) {
     if (!project) return;
     if (expanded.has(path)) {
@@ -802,6 +895,59 @@ export function App({
                   ) : null}
                 </div>
               ) : null}
+              <section className="build-panel" aria-labelledby="build-title">
+                <div className="build-heading">
+                  <h3 id="build-title">Build</h3>
+                  <div className="build-actions">
+                    <button
+                      type="button"
+                      onClick={() => void requestBuild()}
+                      disabled={
+                        !rootDocuments?.selected ||
+                        buildState?.phase === "queued" ||
+                        buildState?.phase === "running"
+                      }
+                    >
+                      Compile
+                    </button>
+                    {buildState?.phase === "queued" ||
+                    buildState?.phase === "running" ? (
+                      <button type="button" onClick={() => void cancelBuild()}>
+                        Cancel
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => void cleanBuildArtifacts()}
+                      >
+                        Clean
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {buildState ? (
+                  <div className="build-status" role="status">
+                    <strong>{buildLabel(buildState)}</strong>
+                    <span>
+                      {buildState.rootDocument} · {buildState.engine}
+                    </span>
+                    {buildState.message ? (
+                      <span>{buildState.message}</span>
+                    ) : null}
+                    {buildState.lastSuccessfulOperationId ? (
+                      <span>Last successful PDF is available.</span>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p>No build has run in this session.</p>
+                )}
+                {buildLog ? (
+                  <details>
+                    <summary>Build log</summary>
+                    <pre className="build-log">{buildLog}</pre>
+                  </details>
+                ) : null}
+              </section>
               {recoveryInventory &&
               (recoveryInventory.snapshots.length > 0 ||
                 recoveryInventory.warnings.length > 0) ? (
@@ -1102,6 +1248,27 @@ function errorCode(reason: unknown): string | undefined {
     ? reason.code
     : undefined;
 }
+function buildLabel(state: BuildState): string {
+  switch (state.phase) {
+    case "queued":
+      return "Build queued";
+    case "running":
+      return "Building…";
+    case "succeeded":
+      return state.elapsedMs === null
+        ? "Build succeeded"
+        : `Build succeeded in ${Number(state.elapsedMs) / 1000}s`;
+    case "failed":
+      return state.exitCode === null
+        ? "Build failed"
+        : `Build failed (exit ${state.exitCode})`;
+    case "cancelled":
+      return "Build cancelled";
+    case "timedOut":
+      return "Build timed out";
+  }
+}
+
 function errorMessage(reason: unknown): string {
   if (
     typeof reason === "object" &&

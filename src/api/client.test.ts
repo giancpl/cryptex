@@ -19,6 +19,9 @@ it("exposes a mockable typed backend contract", async () => {
     setRootDocument: () => Promise.reject(new Error("not used")),
     resolveBuildConfiguration: () => Promise.reject(new Error("not used")),
     setProjectEngine: () => Promise.reject(new Error("not used")),
+    requestBuild: () => Promise.reject(new Error("not used")),
+    cancelBuild: () => Promise.reject(new Error("not used")),
+    cleanBuildArtifacts: () => Promise.reject(new Error("not used")),
     projectTrust: () => Promise.reject(new Error("not used")),
     setProjectPermission: () => Promise.reject(new Error("not used")),
     revokeProjectTrust: () => Promise.reject(new Error("not used")),
@@ -26,6 +29,8 @@ it("exposes a mockable typed backend contract", async () => {
     listRecoverySnapshots: () => Promise.reject(new Error("not used")),
     deleteRecoverySnapshot: () => Promise.reject(new Error("not used")),
     onProjectFileChange: () => Promise.resolve(() => undefined),
+    onBuildState: () => Promise.resolve(() => undefined),
+    onBuildOutput: () => Promise.resolve(() => undefined),
   };
 
   await expect(client.health()).resolves.toEqual(expected);
