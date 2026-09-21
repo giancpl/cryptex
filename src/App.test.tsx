@@ -59,6 +59,7 @@ describe("App", () => {
     });
     const client: BackendClient = {
       health: vi.fn(),
+      toolchainReadiness: vi.fn(),
       openProject,
       listDirectory,
       readTextFile,
@@ -345,6 +346,7 @@ function conflictClient(
 ): BackendClient {
   return {
     health: vi.fn(),
+    toolchainReadiness: vi.fn(),
     openProject: vi.fn().mockResolvedValue({
       apiVersion: 1,
       projectId,

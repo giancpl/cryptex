@@ -9,10 +9,12 @@ import type { RootDocumentCandidates } from "../bindings/RootDocumentCandidates"
 import type { ProjectSummary } from "../bindings/ProjectSummary";
 import type { ProjectFileChange } from "../bindings/ProjectFileChange";
 import type { TextDocument } from "../bindings/TextDocument";
+import type { ToolchainReadiness } from "../bindings/ToolchainReadiness";
 import type { WriteResult } from "../bindings/WriteResult";
 
 export interface BackendClient {
   health(): Promise<HealthResponse>;
+  toolchainReadiness(): Promise<ToolchainReadiness>;
   openProject(root: string): Promise<ProjectSummary>;
   listDirectory(projectId: string, relativePath: string): Promise<FileTreePage>;
   readTextFile(projectId: string, relativePath: string): Promise<TextDocument>;
@@ -56,6 +58,7 @@ export interface BackendClient {
 
 export const backendClient: BackendClient = {
   health: () => invoke<HealthResponse>("health"),
+  toolchainReadiness: () => invoke<ToolchainReadiness>("toolchain_readiness"),
   openProject: (root) => invoke<ProjectSummary>("open_project", { root }),
   listDirectory: (projectId, relativePath) =>
     invoke<FileTreePage>("list_directory", { projectId, relativePath }),

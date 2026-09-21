@@ -31,7 +31,10 @@
 - D1: completed with the TeX Live 2026 curated-root decision, reproducible TLPDB
   measurement, verified installer identity, isolated multi-engine fixture runner,
   offline/versioned delivery design, update/rollback strategy, and licensing gates.
-- Next: D2 managed toolchain discovery and lifecycle.
+- D2: implemented with an app-data-only versioned toolchain root, strict manifest
+  parsing, canonical-root confinement, SHA-256 executable verification, native
+  version probes, typed readiness states, and no project/PATH fallback.
+- Next: D3 restricted process supervisor.
 
 The authoritative sequence is:
 

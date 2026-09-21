@@ -10,6 +10,7 @@ it("exposes a mockable typed backend contract", async () => {
   };
   const client: BackendClient = {
     health: () => Promise.resolve(expected),
+    toolchainReadiness: () => Promise.reject(new Error("not used")),
     openProject: () => Promise.reject(new Error("not used")),
     listDirectory: () => Promise.reject(new Error("not used")),
     readTextFile: () => Promise.reject(new Error("not used")),

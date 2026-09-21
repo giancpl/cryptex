@@ -1,6 +1,9 @@
 mod api;
 
-use cryptex_core::{project::ProjectService, recovery::RecoveryService, settings::RootPreferences};
+use cryptex_core::{
+    project::ProjectService, recovery::RecoveryService, settings::RootPreferences,
+    toolchain::ToolchainService,
+};
 use std::{collections::HashMap, sync::Mutex};
 use tauri::Manager;
 
@@ -16,10 +19,14 @@ pub fn run() {
             app.manage(RecoveryService::new(
                 app.path().app_data_dir()?.join("recovery"),
             ));
+            app.manage(ToolchainService::new(
+                app.path().app_data_dir()?.join("toolchains"),
+            ));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             api::health,
+            api::toolchain_readiness,
             api::open_project,
             api::list_directory,
             api::read_text_file,

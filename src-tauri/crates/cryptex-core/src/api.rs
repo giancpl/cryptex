@@ -39,6 +39,39 @@ pub struct HealthResponse {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "../../../../src/bindings/")]
+pub struct ToolchainReadiness {
+    pub api_version: u16,
+    pub status: ToolchainStatus,
+    pub toolchain_id: Option<String>,
+    pub texlive_year: Option<u16>,
+    pub texlive_revision: Option<u32>,
+    pub platform: Option<String>,
+    pub binaries: Vec<ToolchainBinary>,
+    pub message: Option<String>,
+    pub repairable: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
+pub enum ToolchainStatus {
+    Missing,
+    Ready,
+    Corrupt,
+    Incompatible,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
+pub struct ToolchainBinary {
+    pub name: String,
+    pub version: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
 pub struct ProjectSummary {
     pub api_version: u16,
     pub project_id: String,

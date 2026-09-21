@@ -1,11 +1,12 @@
 use cryptex_core::{
     api::{
         API_VERSION, ApiError, FileTreePage, HealthResponse, ProjectSummary, RecoveryInventory,
-        RecoverySnapshot, RootDocumentCandidates, TextDocument, WriteResult,
+        RecoverySnapshot, RootDocumentCandidates, TextDocument, ToolchainReadiness, WriteResult,
     },
     project::{ProjectError, ProjectService},
     recovery::{RecoveryError, RecoveryService},
     settings::{RootPreferences, SettingsError},
+    toolchain::ToolchainService,
     watcher::ProjectWatcher,
 };
 use std::{collections::HashMap, path::PathBuf, sync::Mutex};
@@ -21,6 +22,11 @@ pub fn health() -> HealthResponse {
         application: "CrypTex".to_owned(),
         version: env!("CARGO_PKG_VERSION").to_owned(),
     }
+}
+
+#[tauri::command]
+pub fn toolchain_readiness(toolchain: State<'_, ToolchainService>) -> ToolchainReadiness {
+    toolchain.readiness()
 }
 
 #[tauri::command]

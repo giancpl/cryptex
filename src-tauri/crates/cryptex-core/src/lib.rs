@@ -1,6 +1,7 @@
 pub mod api;
 pub mod project;
+pub mod toolchain;
 pub mod watcher;
 
-pub mod settings;
 pub mod recovery;
+pub mod settings;

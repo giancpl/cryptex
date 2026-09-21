@@ -13,3 +13,11 @@ trust records, recovery snapshots, caches, and rebuildable indices live in the
 platform application-data/cache locations keyed by canonical project identity.
 
 See `DECISIONS.md` and `adr/` for binding architectural decisions.
+
+## Managed toolchain boundary
+
+D2 resolves TeX only from `app_data/toolchains/versions/<toolchain-id>` through
+a strict versioned manifest and `active.json`. Every required executable is
+canonicalized beneath that root, SHA-256 checked, and version-probed with a cleared
+environment before the toolchain can be reported ready. Project paths and ambient
+`PATH` are never discovery inputs. See ADR-002.
