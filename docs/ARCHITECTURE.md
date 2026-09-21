@@ -78,3 +78,13 @@ bounded output events drive the UI without exposing process primitives. Successf
 artifacts remain in the canonical per-project app-cache directory; failed builds do
 not erase last-success metadata, and cleanup can remove only the exact validated cache
 directory while no build is active.
+
+## Diagnostic extraction
+
+F1 reads at most 4 MiB from the generated LaTeX log and tolerates malformed or
+truncated input. It extracts stable diagnostic codes for located TeX errors, classic
+errors, warnings, over/underfull boxes, undefined references and citations,
+bibliography warnings, and latexmk failures. A source range is emitted only when its
+path canonicalizes to a regular file beneath the project root; uncertain locations
+remain unlocated. The latest published operation may expose its bounded raw log
+through an operation-scoped command that revalidates the artifact inside app cache.

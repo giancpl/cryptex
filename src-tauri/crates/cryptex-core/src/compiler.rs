@@ -49,6 +49,18 @@ impl LatexmkRequestBuilder {
         Ok(Self { build_cache_root })
     }
 
+    pub fn validate_artifact_file(&self, path: &Path) -> Result<PathBuf, BuildRequestError> {
+        let metadata = fs::symlink_metadata(path).map_err(BuildRequestError::Io)?;
+        if metadata.file_type().is_symlink() || !metadata.is_file() {
+            return Err(BuildRequestError::InvalidBuildCache);
+        }
+        let resolved = path.canonicalize().map_err(BuildRequestError::Io)?;
+        if !resolved.starts_with(&self.build_cache_root) || resolved != path {
+            return Err(BuildRequestError::InvalidBuildCache);
+        }
+        Ok(resolved)
+    }
+
     pub fn clean(&self, project_id: &str) -> Result<(), BuildRequestError> {
         let project_id = ProjectId::parse(project_id)?;
         let target = self.build_cache_root.join(project_id.as_str());
@@ -374,6 +386,33 @@ mod tests {
                 Err(BuildRequestError::UnsafeProjectRc)
             ));
         }
+    }
+
+    #[test]
+    fn artifact_validation_accepts_only_regular_files_in_the_build_cache() {
+        let fixture = fixture("main.tex", LatexEngine::PdfLatex);
+        let request = fixture
+            .builder
+            .build(
+                &fixture.projects,
+                &fixture.trust,
+                fixture.configuration.clone(),
+            )
+            .unwrap();
+        fs::write(&request.artifacts.log, "log").unwrap();
+        assert_eq!(
+            fixture
+                .builder
+                .validate_artifact_file(&request.artifacts.log)
+                .unwrap(),
+            request.artifacts.log.canonicalize().unwrap()
+        );
+        let outside = fixture._state.path().join("outside.log");
+        fs::write(&outside, "outside").unwrap();
+        assert!(matches!(
+            fixture.builder.validate_artifact_file(&outside),
+            Err(BuildRequestError::InvalidBuildCache)
+        ));
     }
 
     #[test]

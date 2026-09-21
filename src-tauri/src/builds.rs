@@ -1,11 +1,12 @@
 use crate::api::{EnginePreferenceState, RootPreferenceState, TrustState};
 use cryptex_core::{
     api::{
-        API_VERSION, ApiError, BuildOutput, BuildOutputStream, BuildPhase, BuildReason, BuildState,
-        OperationId,
+        API_VERSION, ApiError, BuildLog, BuildOutput, BuildOutputStream, BuildPhase, BuildReason,
+        BuildState, Diagnostic, OperationId,
     },
     build::resolve_build_configuration,
     compiler::{BuildRequestError, LATEXMK_EXECUTABLE, LatexmkRequest, LatexmkRequestBuilder},
+    diagnostics::{parse_latex_log_file, read_latex_log_file},
     process::{OutputStream, ProcessLimits, ProcessOutcome, ProcessSupervisor},
     project::ProjectService,
     scheduler::{
@@ -32,6 +33,12 @@ struct ExecutableBuild {
 struct RuntimeState {
     scheduler: BuildScheduler<ExecutableBuild>,
     last_success: HashMap<String, OperationId>,
+    raw_logs: HashMap<String, LogArtifact>,
+}
+
+struct LogArtifact {
+    operation_id: OperationId,
+    path: PathBuf,
 }
 
 pub struct BuildRuntime {
@@ -118,6 +125,8 @@ pub fn request_build(
                 None,
                 false,
                 false,
+                Vec::new(),
+                false,
                 None,
             );
             drop(state);
@@ -137,6 +146,8 @@ pub fn request_build(
                 None,
                 false,
                 false,
+                Vec::new(),
+                false,
                 None,
             );
             drop(state);
@@ -155,6 +166,8 @@ pub fn request_build(
                 None,
                 None,
                 false,
+                false,
+                Vec::new(),
                 false,
                 Some("Save request coalesced into the queued explicit build".to_owned()),
             );
@@ -200,7 +213,49 @@ pub fn clean_build_artifacts(
         .clean(&project_id)
         .map_err(|error| api_error("BUILD_CLEAN_ERROR", error.to_string(), true))?;
     state.last_success.remove(&project_id);
+    state.raw_logs.remove(&project_id);
     Ok(())
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn read_build_log(
+    project_id: String,
+    operation_id: String,
+    runtime: State<'_, BuildRuntime>,
+) -> Result<BuildLog, ApiError> {
+    let state = runtime
+        .state
+        .lock()
+        .map_err(|_| internal("build runtime lock is poisoned"))?;
+    let artifact = state.raw_logs.get(&project_id).ok_or_else(|| {
+        api_error(
+            "BUILD_LOG_UNAVAILABLE",
+            "no retained raw log is available for this project".to_owned(),
+            false,
+        )
+    })?;
+    if artifact.operation_id.0 != operation_id {
+        return Err(api_error(
+            "BUILD_LOG_UNAVAILABLE",
+            "the requested raw log is no longer retained".to_owned(),
+            false,
+        ));
+    }
+    let path = runtime
+        .request_builder
+        .validate_artifact_file(&artifact.path)
+        .map_err(|error| api_error("BUILD_LOG_UNAVAILABLE", error.to_string(), false))?;
+    let retained_operation = artifact.operation_id.clone();
+    drop(state);
+    let (text, truncated) = read_latex_log_file(&path)
+        .map_err(|error| api_error("BUILD_LOG_READ_ERROR", error.to_string(), true))?;
+    Ok(BuildLog {
+        api_version: API_VERSION,
+        project_id,
+        operation_id: retained_operation,
+        text,
+        truncated,
+    })
 }
 
 fn spawn_build(app: AppHandle, build: ScheduledBuild<ExecutableBuild>) {
@@ -211,6 +266,8 @@ fn spawn_build(app: AppHandle, build: ScheduledBuild<ExecutableBuild>) {
         None,
         None,
         false,
+        false,
+        Vec::new(),
         false,
         None,
     );
@@ -224,6 +281,7 @@ fn run_build(app: AppHandle, build: ScheduledBuild<ExecutableBuild>) {
     let reason = build.reason;
     let configuration = build.request.configuration.clone();
     let artifacts = build.request.artifacts.clone();
+    let project_root = build.request.working_directory.clone();
     let supervisor = ProcessSupervisor::new(
         BTreeMap::from([(
             build.request.executable_name.clone(),
@@ -259,37 +317,50 @@ fn run_build(app: AppHandle, build: ScheduledBuild<ExecutableBuild>) {
         )
     });
 
-    let (mut phase, elapsed_ms, exit_code, truncated, mut pdf_available, mut message) = match result
-    {
-        Ok(result) => (
-            match result.outcome {
-                ProcessOutcome::Succeeded => BuildPhase::Succeeded,
-                ProcessOutcome::Failed => BuildPhase::Failed,
-                ProcessOutcome::Cancelled => BuildPhase::Cancelled,
-                ProcessOutcome::TimedOut => BuildPhase::TimedOut,
-            },
-            Some(result.elapsed.as_millis().min(u64::MAX as u128) as u64),
-            result.exit_code,
-            result.log_truncated,
-            result.outcome == ProcessOutcome::Succeeded && artifacts.pdf.is_file(),
-            None,
-        ),
-        Err(error) => (
-            BuildPhase::Failed,
-            None,
-            None,
-            false,
-            false,
-            Some(error.to_string()),
-        ),
+    let (mut phase, elapsed_ms, exit_code, mut truncated, mut pdf_available, mut message) =
+        match result {
+            Ok(result) => (
+                match result.outcome {
+                    ProcessOutcome::Succeeded => BuildPhase::Succeeded,
+                    ProcessOutcome::Failed => BuildPhase::Failed,
+                    ProcessOutcome::Cancelled => BuildPhase::Cancelled,
+                    ProcessOutcome::TimedOut => BuildPhase::TimedOut,
+                },
+                Some(result.elapsed.as_millis().min(u64::MAX as u128) as u64),
+                result.exit_code,
+                result.log_truncated,
+                result.outcome == ProcessOutcome::Succeeded && artifacts.pdf.is_file(),
+                None,
+            ),
+            Err(error) => (
+                BuildPhase::Failed,
+                None,
+                None,
+                false,
+                false,
+                Some(error.to_string()),
+            ),
+        };
+    let runtime = app.state::<BuildRuntime>();
+    let validated_log = runtime
+        .request_builder
+        .validate_artifact_file(&artifacts.log)
+        .ok();
+    let raw_log_available = validated_log.is_some();
+    let parsed = if let Some(log) = validated_log {
+        parse_latex_log_file(&log, &project_root, &configuration.root_document).unwrap_or_default()
+    } else {
+        Default::default()
     };
+    truncated |= parsed.truncated;
+    let diagnostics = parsed.diagnostics;
+
     if phase == BuildPhase::Succeeded && !pdf_available {
         phase = BuildPhase::Failed;
         pdf_available = false;
         message = Some("latexmk exited successfully but produced no complete PDF".to_owned());
     }
 
-    let runtime = app.state::<BuildRuntime>();
     let mut state = match runtime.state.lock() {
         Ok(state) => state,
         Err(_) => return,
@@ -307,6 +378,19 @@ fn run_build(app: AppHandle, build: ScheduledBuild<ExecutableBuild>) {
             .last_success
             .insert(project_id.clone(), operation_id.clone());
     }
+    if publish_result {
+        if raw_log_available {
+            state.raw_logs.insert(
+                project_id.clone(),
+                LogArtifact {
+                    operation_id: operation_id.clone(),
+                    path: artifacts.log.clone(),
+                },
+            );
+        } else {
+            state.raw_logs.remove(&project_id);
+        }
+    }
     let last_success = state.last_success.get(&project_id).cloned();
     drop(state);
 
@@ -322,6 +406,8 @@ fn run_build(app: AppHandle, build: ScheduledBuild<ExecutableBuild>) {
             elapsed_ms,
             exit_code,
             truncated,
+            raw_log_available,
+            diagnostics,
             pdf_available,
             message,
         );
@@ -347,6 +433,8 @@ fn status_for(
     elapsed_ms: Option<u64>,
     exit_code: Option<i32>,
     log_truncated: bool,
+    raw_log_available: bool,
+    diagnostics: Vec<Diagnostic>,
     pdf_available: bool,
     message: Option<String>,
 ) -> BuildState {
@@ -361,6 +449,8 @@ fn status_for(
         elapsed_ms,
         exit_code,
         log_truncated,
+        raw_log_available,
+        diagnostics,
         pdf_available,
         message,
     )
@@ -378,6 +468,8 @@ fn state_from_parts(
     elapsed_ms: Option<u64>,
     exit_code: Option<i32>,
     log_truncated: bool,
+    raw_log_available: bool,
+    diagnostics: Vec<Diagnostic>,
     pdf_available: bool,
     message: Option<String>,
 ) -> BuildState {
@@ -392,6 +484,8 @@ fn state_from_parts(
         elapsed_ms,
         exit_code,
         log_truncated,
+        raw_log_available,
+        diagnostics,
         pdf_available,
         last_successful_operation_id,
         message,

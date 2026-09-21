@@ -59,7 +59,11 @@
 - E4: implemented with verified managed-executable resolution, scheduler-to-supervisor
   wiring, bounded typed output events, visible queued/running/terminal states, explicit
   cancellation, last-success metadata, and cache-confined cleanup.
-- Next: F1 structured LaTeX log parsing.
+- F1: implemented with bounded tolerant parsing for file-line and classic TeX errors,
+  warnings, over/underfull boxes, undefined references/citations, bibliography phases,
+  and latexmk failures. Locations are published only for validated in-project files;
+  the retained raw log is operation-scoped and cache-confined.
+- Next: F2 diagnostics presentation, filtering, and source navigation.
 
 The authoritative sequence is:
 
@@ -74,6 +78,6 @@ The authoritative sequence is:
 9. B3 fingerprinted reads and atomic writes.
 10. C1 CodeMirror and document tabs.
 
-Continue with F1-F6, G1-G4, H1-H5, I1-I5, and J1-J6 in
+Continue with F2-F6, G1-G4, H1-H5, I1-I5, and J1-J6 in
 dependency order. M8-M10 remain blocked until J6. Each task is an independently
 reviewable change with tests and the global acceptance rules.

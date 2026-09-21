@@ -22,6 +22,7 @@ it("exposes a mockable typed backend contract", async () => {
     requestBuild: () => Promise.reject(new Error("not used")),
     cancelBuild: () => Promise.reject(new Error("not used")),
     cleanBuildArtifacts: () => Promise.reject(new Error("not used")),
+    readBuildLog: () => Promise.reject(new Error("not used")),
     projectTrust: () => Promise.reject(new Error("not used")),
     setProjectPermission: () => Promise.reject(new Error("not used")),
     revokeProjectTrust: () => Promise.reject(new Error("not used")),

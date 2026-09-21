@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { BuildConfiguration } from "../bindings/BuildConfiguration";
 import type { BuildPermission } from "../bindings/BuildPermission";
+import type { BuildLog } from "../bindings/BuildLog";
 import type { BuildOutput } from "../bindings/BuildOutput";
 import type { BuildReason } from "../bindings/BuildReason";
 import type { BuildState } from "../bindings/BuildState";
@@ -61,6 +62,11 @@ export interface BackendClient {
     operationId: string,
   ): Promise<boolean>;
   cleanBuildArtifacts(this: void, projectId: string): Promise<void>;
+  readBuildLog(
+    this: void,
+    projectId: string,
+    operationId: string,
+  ): Promise<BuildLog>;
   projectTrust(this: void, projectId: string): Promise<ProjectTrustState>;
   setProjectPermission(
     this: void,
@@ -125,6 +131,8 @@ export const backendClient: BackendClient = {
     invoke<boolean>("cancel_build", { projectId, operationId }),
   cleanBuildArtifacts: (projectId) =>
     invoke<void>("clean_build_artifacts", { projectId }),
+  readBuildLog: (projectId, operationId) =>
+    invoke<BuildLog>("read_build_log", { projectId, operationId }),
   projectTrust: (projectId) =>
     invoke<ProjectTrustState>("project_trust", { projectId }),
   setProjectPermission: (projectId, permission, allowed) =>

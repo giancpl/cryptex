@@ -84,6 +84,45 @@ pub enum BuildPhase {
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "../../../../src/bindings/")]
+pub enum DiagnosticSeverity {
+    Error,
+    Warning,
+    Information,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
+pub enum DiagnosticPhase {
+    Latex,
+    Bibliography,
+    Latexmk,
+    Toolchain,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
+pub struct DiagnosticSourceRange {
+    pub relative_path: String,
+    pub start_line: u32,
+    pub end_line: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
+pub struct Diagnostic {
+    pub code: String,
+    pub severity: DiagnosticSeverity,
+    pub phase: DiagnosticPhase,
+    pub message: String,
+    pub source: Option<DiagnosticSourceRange>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
 pub enum BuildOutputStream {
     Stdout,
     Stderr,
@@ -103,9 +142,22 @@ pub struct BuildState {
     pub elapsed_ms: Option<u64>,
     pub exit_code: Option<i32>,
     pub log_truncated: bool,
+    pub raw_log_available: bool,
+    pub diagnostics: Vec<Diagnostic>,
     pub pdf_available: bool,
     pub last_successful_operation_id: Option<OperationId>,
     pub message: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
+pub struct BuildLog {
+    pub api_version: u16,
+    pub project_id: String,
+    pub operation_id: OperationId,
+    pub text: String,
+    pub truncated: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]

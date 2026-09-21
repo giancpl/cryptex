@@ -56,7 +56,8 @@ pub fn run() {
             api::delete_recovery_snapshot,
             builds::request_build,
             builds::cancel_build,
-            builds::clean_build_artifacts
+            builds::clean_build_artifacts,
+            builds::read_build_log
         ])
         .run(tauri::generate_context!())
         .expect("failed to run CrypTex");

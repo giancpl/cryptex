@@ -462,6 +462,7 @@ function buildMocks() {
     }),
     cancelBuild: vi.fn().mockResolvedValue(true),
     cleanBuildArtifacts: vi.fn().mockResolvedValue(undefined),
+    readBuildLog: vi.fn().mockRejectedValue(new Error("not used")),
     onBuildState: vi.fn().mockResolvedValue(() => undefined),
     onBuildOutput: vi.fn().mockResolvedValue(() => undefined),
   };
