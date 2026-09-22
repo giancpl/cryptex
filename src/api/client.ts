@@ -67,6 +67,11 @@ export interface BackendClient {
     projectId: string,
     operationId: string,
   ): Promise<BuildLog>;
+  readBuildPdf(
+    this: void,
+    projectId: string,
+    operationId: string,
+  ): Promise<Uint8Array>;
   projectTrust(this: void, projectId: string): Promise<ProjectTrustState>;
   setProjectPermission(
     this: void,
@@ -133,6 +138,13 @@ export const backendClient: BackendClient = {
     invoke<void>("clean_build_artifacts", { projectId }),
   readBuildLog: (projectId, operationId) =>
     invoke<BuildLog>("read_build_log", { projectId, operationId }),
+  readBuildPdf: async (projectId, operationId) => {
+    const response = await invoke<ArrayBuffer>("read_build_pdf", {
+      projectId,
+      operationId,
+    });
+    return new Uint8Array(response);
+  },
   projectTrust: (projectId) =>
     invoke<ProjectTrustState>("project_trust", { projectId }),
   setProjectPermission: (projectId, permission, allowed) =>

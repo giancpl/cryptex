@@ -14,7 +14,6 @@ use cryptex_core::{
         ScheduledBuild,
     },
     toolchain::ToolchainService,
-    trust::TrustService,
 };
 use std::{
     collections::{BTreeMap, HashMap},
@@ -22,7 +21,9 @@ use std::{
     sync::Mutex,
     thread,
 };
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State, ipc::Response};
+
+const MAX_PDF_BYTES: u64 = 128 * 1024 * 1024;
 
 struct ExecutableBuild {
     request: LatexmkRequest,
@@ -34,9 +35,15 @@ struct RuntimeState {
     scheduler: BuildScheduler<ExecutableBuild>,
     last_success: HashMap<String, OperationId>,
     raw_logs: HashMap<String, LogArtifact>,
+    pdfs: HashMap<String, PdfArtifact>,
 }
 
 struct LogArtifact {
+    operation_id: OperationId,
+    path: PathBuf,
+}
+
+struct PdfArtifact {
     operation_id: OperationId,
     path: PathBuf,
 }
@@ -55,6 +62,7 @@ impl BuildRuntime {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 #[tauri::command(rename_all = "camelCase")]
 pub fn request_build(
     project_id: String,
@@ -214,6 +222,7 @@ pub fn clean_build_artifacts(
         .map_err(|error| api_error("BUILD_CLEAN_ERROR", error.to_string(), true))?;
     state.last_success.remove(&project_id);
     state.raw_logs.remove(&project_id);
+    state.pdfs.remove(&project_id);
     Ok(())
 }
 
@@ -258,6 +267,39 @@ pub fn read_build_log(
     })
 }
 
+#[tauri::command(rename_all = "camelCase")]
+pub fn read_build_pdf(
+    project_id: String,
+    operation_id: String,
+    runtime: State<'_, BuildRuntime>,
+) -> Result<Response, ApiError> {
+    let state = runtime
+        .state
+        .lock()
+        .map_err(|_| internal("build runtime lock is poisoned"))?;
+    let artifact = state.pdfs.get(&project_id).ok_or_else(|| {
+        api_error(
+            "BUILD_PDF_UNAVAILABLE",
+            "no successful PDF is retained for this project".to_owned(),
+            false,
+        )
+    })?;
+    if artifact.operation_id.0 != operation_id {
+        return Err(api_error(
+            "BUILD_PDF_UNAVAILABLE",
+            "the requested PDF is no longer retained".to_owned(),
+            false,
+        ));
+    }
+    let path = artifact.path.clone();
+    drop(state);
+    let bytes = runtime
+        .request_builder
+        .read_bounded_artifact(&path, MAX_PDF_BYTES)
+        .map_err(|error| api_error("BUILD_PDF_READ_ERROR", error.to_string(), false))?;
+    Ok(Response::new(bytes))
+}
+
 fn spawn_build(app: AppHandle, build: ScheduledBuild<ExecutableBuild>) {
     let running = status_for(
         &build,
@@ -279,15 +321,15 @@ fn run_build(app: AppHandle, build: ScheduledBuild<ExecutableBuild>) {
     let project_id = build.project_id.clone();
     let operation_id = build.operation_id.clone();
     let reason = build.reason;
-    let configuration = build.request.configuration.clone();
-    let artifacts = build.request.artifacts.clone();
-    let project_root = build.request.working_directory.clone();
+    let configuration = build.request.request.configuration.clone();
+    let artifacts = build.request.request.artifacts.clone();
+    let project_root = build.request.request.working_directory.clone();
     let supervisor = ProcessSupervisor::new(
         BTreeMap::from([(
-            build.request.executable_name.clone(),
-            build.executable.clone(),
+            build.request.request.executable_name.clone(),
+            build.request.executable.clone(),
         )]),
-        vec![build.request.working_directory.clone()],
+        vec![build.request.request.working_directory.clone()],
         ProcessLimits::default(),
     );
     let result = supervisor.and_then(|supervisor| {
@@ -295,9 +337,9 @@ fn run_build(app: AppHandle, build: ScheduledBuild<ExecutableBuild>) {
         let output_project = project_id.clone();
         let output_operation = operation_id.clone();
         supervisor.run(
-            &build.request.executable_name,
-            &build.request.arguments,
-            &build.request.working_directory,
+            &build.request.request.executable_name,
+            &build.request.request.arguments,
+            &build.request.request.working_directory,
             &build.cancellation,
             move |chunk| {
                 let _ = output_app.emit(
@@ -329,7 +371,7 @@ fn run_build(app: AppHandle, build: ScheduledBuild<ExecutableBuild>) {
                 Some(result.elapsed.as_millis().min(u64::MAX as u128) as u64),
                 result.exit_code,
                 result.log_truncated,
-                result.outcome == ProcessOutcome::Succeeded && artifacts.pdf.is_file(),
+                result.outcome == ProcessOutcome::Succeeded,
                 None,
             ),
             Err(error) => (
@@ -342,6 +384,11 @@ fn run_build(app: AppHandle, build: ScheduledBuild<ExecutableBuild>) {
             ),
         };
     let runtime = app.state::<BuildRuntime>();
+    let validated_pdf = runtime
+        .request_builder
+        .validate_artifact_file(&artifacts.pdf)
+        .ok();
+    pdf_available &= validated_pdf.is_some();
     let validated_log = runtime
         .request_builder
         .validate_artifact_file(&artifacts.log)
@@ -377,6 +424,15 @@ fn run_build(app: AppHandle, build: ScheduledBuild<ExecutableBuild>) {
         state
             .last_success
             .insert(project_id.clone(), operation_id.clone());
+        if let Some(path) = validated_pdf {
+            state.pdfs.insert(
+                project_id.clone(),
+                PdfArtifact {
+                    operation_id: operation_id.clone(),
+                    path,
+                },
+            );
+        }
     }
     if publish_result {
         if raw_log_available {
@@ -426,6 +482,7 @@ fn last_success(app: &AppHandle, project_id: &str) -> Option<OperationId> {
         .and_then(|state| state.last_success.get(project_id).cloned())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn status_for(
     build: &ScheduledBuild<ExecutableBuild>,
     phase: BuildPhase,
@@ -443,8 +500,8 @@ fn status_for(
         build.operation_id.clone(),
         phase,
         build.reason,
-        &build.request.configuration.root_document,
-        build.request.configuration.engine,
+        &build.request.request.configuration.root_document,
+        build.request.request.configuration.engine,
         last_success,
         elapsed_ms,
         exit_code,

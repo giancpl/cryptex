@@ -350,6 +350,9 @@ describe("App", () => {
       sizeBytes: 18,
     });
     const client = conflictClient(projectId, readTextFile, () => undefined);
+    client.readBuildPdf = vi
+      .fn()
+      .mockImplementation(() => new Promise(() => undefined));
     client.requestBuild = vi.fn().mockResolvedValue({
       apiVersion: 1,
       projectId,
@@ -389,6 +392,9 @@ describe("App", () => {
       expect(client.requestBuild).toHaveBeenCalledWith(projectId, "explicit"),
     );
     expect(await screen.findByText("Build succeeded in 1.25s")).toBeVisible();
+    await waitFor(() =>
+      expect(client.readBuildPdf).toHaveBeenCalledWith(projectId, "build-9"),
+    );
     expect(screen.getByText("Last successful PDF is available.")).toBeVisible();
     expect(screen.getByRole("heading", { name: "Problems" })).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: /LATEX_ERROR/ }));
@@ -526,6 +532,7 @@ function buildMocks() {
     cancelBuild: vi.fn().mockResolvedValue(true),
     cleanBuildArtifacts: vi.fn().mockResolvedValue(undefined),
     readBuildLog: vi.fn().mockRejectedValue(new Error("not used")),
+    readBuildPdf: vi.fn().mockRejectedValue(new Error("not used")),
     onBuildState: vi.fn().mockResolvedValue(() => undefined),
     onBuildOutput: vi.fn().mockResolvedValue(() => undefined),
   };

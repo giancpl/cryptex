@@ -17,6 +17,7 @@ import {
   type BackendClient,
 } from "./api/client";
 import { CodeEditor } from "./editor/CodeEditor";
+import { PdfViewer } from "./pdf/PdfViewer";
 import { createLatexEditorState } from "./editor/editorState";
 
 interface OpenDocument {
@@ -67,6 +68,12 @@ export function App({
   const [buildState, setBuildState] = useState<BuildState | null>(null);
   const [buildLog, setBuildLog] = useState("");
   const [rawBuildLog, setRawBuildLog] = useState<string | null>(null);
+  const [pdfPreview, setPdfPreview] = useState<{
+    projectId: string;
+    operationId: string;
+    data: Uint8Array;
+  } | null>(null);
+  const [pdfError, setPdfError] = useState<string | null>(null);
   const [diagnosticFilter, setDiagnosticFilter] = useState<
     DiagnosticSeverity | "all"
   >("all");
@@ -428,6 +435,34 @@ export function App({
   }, [client, project]);
 
   useEffect(() => {
+    if (
+      !project ||
+      !buildState ||
+      buildState.phase !== "succeeded" ||
+      !buildState.pdfAvailable
+    )
+      return;
+    let disposed = false;
+    setPdfError(null);
+    void client
+      .readBuildPdf(project.projectId, buildState.operationId)
+      .then((data) => {
+        if (!disposed)
+          setPdfPreview({
+            projectId: project.projectId,
+            operationId: buildState.operationId,
+            data,
+          });
+      })
+      .catch((reason: unknown) => {
+        if (!disposed) setPdfError(errorMessage(reason));
+      });
+    return () => {
+      disposed = true;
+    };
+  }, [buildState, client, project]);
+
+  useEffect(() => {
     for (const [path, document] of Object.entries(documents)) {
       const scheduled = autosaveTimers.current.get(path);
       if (document.saveStatus !== "dirty") {
@@ -567,6 +602,8 @@ export function App({
       projectEpochRef.current = 0;
       setDiagnosticEpoch(null);
       setRawBuildLog(null);
+      setPdfPreview(null);
+      setPdfError(null);
       setBuildLog("");
     } catch (reason) {
       setError(errorMessage(reason));
@@ -704,6 +741,8 @@ export function App({
       buildEpochsRef.current.clear();
       setDiagnosticEpoch(null);
       setRawBuildLog(null);
+      setPdfPreview(null);
+      setPdfError(null);
       setBuildLog("");
     } catch (reason) {
       setError(errorMessage(reason));
@@ -1363,9 +1402,19 @@ export function App({
             <p>Select a text file to begin editing.</p>
           )}
         </section>
-        <section className="pane" aria-labelledby="pane-pdf">
+        <section className="pane pdf-pane" aria-labelledby="pane-pdf">
           <h1 id="pane-pdf">PDF</h1>
-          <p>A successful build will appear here.</p>
+          {pdfError ? <p role="alert">{pdfError}</p> : null}
+          {pdfPreview && pdfPreview.projectId === project?.projectId ? (
+            <PdfViewer
+              key={pdfPreview.projectId}
+              projectId={pdfPreview.projectId}
+              operationId={pdfPreview.operationId}
+              data={pdfPreview.data}
+            />
+          ) : (
+            <p>A successful build will appear here.</p>
+          )}
         </section>
       </div>
     </main>

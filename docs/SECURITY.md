@@ -26,7 +26,10 @@ so they cannot become options, and derives shell-escape flags only from backend 
 E3 cancellation targets the active operation token, and a preempted or mismatched
 operation cannot publish a result or replace newer build state. F1 bounds log reads,
 rejects source locations outside the canonical project root, and serves only the
-retained operation log after revalidating it as a regular in-cache artifact.
+retained operation log after revalidating it as a regular in-cache artifact. F3 applies
+the same operation-scoped cache validation to PDFs, transfers bounded binary data
+instead of paths, and uses a local canvas-only PDF.js integration without annotation,
+form, XFA, or scripting layers.
 
 Restricted TeX is not a proven sandbox. OS sandboxing is a release investigation,
 not a reason to weaken the controls above.

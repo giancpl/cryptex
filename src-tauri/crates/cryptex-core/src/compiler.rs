@@ -6,6 +6,7 @@ use crate::{
 use std::{
     ffi::OsString,
     fs,
+    io::Read,
     path::{Path, PathBuf},
 };
 use thiserror::Error;
@@ -59,6 +60,24 @@ impl LatexmkRequestBuilder {
             return Err(BuildRequestError::InvalidBuildCache);
         }
         Ok(resolved)
+    }
+
+    pub fn read_bounded_artifact(
+        &self,
+        path: &Path,
+        max_bytes: u64,
+    ) -> Result<Vec<u8>, BuildRequestError> {
+        let path = self.validate_artifact_file(path)?;
+        let mut bytes = Vec::new();
+        fs::File::open(path)
+            .map_err(BuildRequestError::Io)?
+            .take(max_bytes.saturating_add(1))
+            .read_to_end(&mut bytes)
+            .map_err(BuildRequestError::Io)?;
+        if bytes.len() as u64 > max_bytes {
+            return Err(BuildRequestError::ArtifactTooLarge { max_bytes });
+        }
+        Ok(bytes)
     }
 
     pub fn clean(&self, project_id: &str) -> Result<(), BuildRequestError> {
@@ -214,6 +233,8 @@ pub enum BuildRequestError {
     Project(#[from] ProjectError),
     #[error(transparent)]
     Trust(#[from] TrustError),
+    #[error("build artifact exceeds the {max_bytes}-byte limit")]
+    ArtifactTooLarge { max_bytes: u64 },
     #[error("build request filesystem operation failed: {0}")]
     Io(#[source] std::io::Error),
 }
@@ -412,6 +433,33 @@ mod tests {
         assert!(matches!(
             fixture.builder.validate_artifact_file(&outside),
             Err(BuildRequestError::InvalidBuildCache)
+        ));
+    }
+
+    #[test]
+    fn bounded_artifact_reads_reject_oversized_files() {
+        let fixture = fixture("main.tex", LatexEngine::PdfLatex);
+        let request = fixture
+            .builder
+            .build(
+                &fixture.projects,
+                &fixture.trust,
+                fixture.configuration.clone(),
+            )
+            .unwrap();
+        fs::write(&request.artifacts.pdf, b"12345").unwrap();
+        assert_eq!(
+            fixture
+                .builder
+                .read_bounded_artifact(&request.artifacts.pdf, 5)
+                .unwrap(),
+            b"12345"
+        );
+        assert!(matches!(
+            fixture
+                .builder
+                .read_bounded_artifact(&request.artifacts.pdf, 4),
+            Err(BuildRequestError::ArtifactTooLarge { max_bytes: 4 })
         ));
     }
 

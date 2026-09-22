@@ -98,3 +98,13 @@ line decoration. Unlocated entries remain visible but cannot navigate. A monoton
 frontend project-edit epoch labels results stale and removes inline markers after any
 subsequent edit, while the operation-scoped raw log is fetched only on explicit user
 request.
+
+## PDF artifact and viewer boundary
+
+F3 retains only the latest successful PDF capability per project and operation. The
+frontend cannot submit a path: it requests bytes using those opaque identities, and
+Rust revalidates the exact regular cache artifact before a bounded 128 MiB binary IPC
+response. PDF.js 6.3.289 and its worker are bundled locally. The custom canvas viewer
+does not instantiate PDF.js annotation or scripting layers, disables XFA and worker
+fetches, caps decoded images and canvas pixels, limits text search to 500 pages, and
+persists only page/zoom view state outside project files.

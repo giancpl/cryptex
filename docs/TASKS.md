@@ -66,7 +66,11 @@
 - F2: implemented with severity-filtered Problems UI, source navigation and selection,
   inline CodeMirror line markers, stale-result labeling after project edits, unlocated
   diagnostic degradation, and an explicitly loaded bounded raw-log view.
-- Next: F3 secure PDF.js viewer integration.
+- F3: implemented with an operation-scoped binary IPC capability, 128 MiB backend
+  limit, cache revalidation, pinned PDF.js worker, canvas-only rendering with scripting
+  and annotations excluded, bounded images/canvas/search, page navigation, zoom,
+  search, malformed-PDF recovery, and per-project view persistence.
+- Next: F4 last-successful PDF refresh and race handling.
 
 The authoritative sequence is:
 
@@ -81,6 +85,6 @@ The authoritative sequence is:
 9. B3 fingerprinted reads and atomic writes.
 10. C1 CodeMirror and document tabs.
 
-Continue with F3-F6, G1-G4, H1-H5, I1-I5, and J1-J6 in
+Continue with F4-F6, G1-G4, H1-H5, I1-I5, and J1-J6 in
 dependency order. M8-M10 remain blocked until J6. Each task is an independently
 reviewable change with tests and the global acceptance rules.

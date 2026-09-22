@@ -472,3 +472,73 @@ input {
 .problems-panel details {
   margin-top: 8px;
 }
+
+.pdf-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.pdf-viewer {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+.pdf-toolbar,
+.pdf-search {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pdf-toolbar button,
+.pdf-search button {
+  background: #283640;
+  border: 1px solid #40515d;
+  border-radius: 4px;
+  color: #e8edf2;
+  cursor: pointer;
+}
+.pdf-toolbar button:disabled,
+.pdf-search button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.pdf-toolbar label {
+  align-items: center;
+  display: flex;
+  font-size: 0.75rem;
+  gap: 4px;
+}
+.pdf-toolbar input {
+  background: #151b21;
+  border: 1px solid #40515d;
+  color: #e8edf2;
+  width: 4rem;
+}
+.pdf-search input {
+  background: #151b21;
+  border: 1px solid #40515d;
+  color: #e8edf2;
+  flex: 1;
+  min-width: 8rem;
+}
+.pdf-search span {
+  color: #82909f;
+  font-size: 0.72rem;
+}
+.pdf-canvas-container {
+  background: #252b30;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+  text-align: center;
+}
+.pdf-canvas-container canvas {
+  background: white;
+  box-shadow: 0 3px 14px #0009;
+  max-width: none;
+}

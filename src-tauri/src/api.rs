@@ -184,10 +184,11 @@ pub fn resolve_build_configuration(
         .lock()
         .map_err(|_| internal_error("engine preference lock is poisoned"))?
         .get(&project_id);
+    let projects = projects
+        .lock()
+        .map_err(|_| internal_error("project service lock is poisoned"))?;
     resolve_configuration(
-        &projects
-            .lock()
-            .map_err(|_| internal_error("project service lock is poisoned"))?,
+        &projects,
         &project_id,
         preferred_root.as_deref(),
         preferred_engine,
