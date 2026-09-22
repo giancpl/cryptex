@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { EditorState } from "@codemirror/state";
 import type { BuildOutput } from "./bindings/BuildOutput";
 import type { BuildState } from "./bindings/BuildState";
+import type { Diagnostic } from "./bindings/Diagnostic";
+import type { DiagnosticSeverity } from "./bindings/DiagnosticSeverity";
 import type { FileTreeEntry } from "./bindings/FileTreeEntry";
 import type { FileTreePage } from "./bindings/FileTreePage";
 import type { RecoveryInventory } from "./bindings/RecoveryInventory";
@@ -64,9 +66,21 @@ export function App({
     useState<RootDocumentCandidates | null>(null);
   const [buildState, setBuildState] = useState<BuildState | null>(null);
   const [buildLog, setBuildLog] = useState("");
+  const [rawBuildLog, setRawBuildLog] = useState<string | null>(null);
+  const [diagnosticFilter, setDiagnosticFilter] = useState<
+    DiagnosticSeverity | "all"
+  >("all");
+  const [diagnosticEpoch, setDiagnosticEpoch] = useState<number | null>(null);
+  const [editorNavigation, setEditorNavigation] = useState<{
+    path: string;
+    line: number;
+    request: number;
+  } | null>(null);
   const documentsRef = useRef(documents);
   const directoriesRef = useRef(directories);
   const buildOperationRef = useRef<string | null>(null);
+  const projectEpochRef = useRef(0);
+  const buildEpochsRef = useRef(new Map<string, number>());
   const saveQueues = useRef(new Map<string, Promise<void>>());
   const recoveryTimers = useRef(
     new Map<string, { revision: number; timer: number }>(),
@@ -82,6 +96,36 @@ export function App({
   useEffect(() => {
     directoriesRef.current = directories;
   }, [directories]);
+
+  const diagnosticsStale = Boolean(
+    buildState &&
+    isTerminalBuild(buildState) &&
+    diagnosticEpoch !== null &&
+    projectEpochRef.current !== diagnosticEpoch,
+  );
+  const visibleDiagnostics = useMemo(
+    () =>
+      (buildState?.diagnostics ?? []).filter(
+        (diagnostic) =>
+          diagnosticFilter === "all" ||
+          diagnostic.severity === diagnosticFilter,
+      ),
+    [buildState, diagnosticFilter],
+  );
+  const activeDiagnosticMarkers = useMemo(
+    () =>
+      diagnosticsStale || !activePath
+        ? []
+        : (buildState?.diagnostics ?? [])
+            .filter(
+              (diagnostic) => diagnostic.source?.relativePath === activePath,
+            )
+            .map((diagnostic) => ({
+              line: diagnostic.source!.startLine,
+              severity: diagnostic.severity,
+            })),
+    [activePath, buildState, diagnosticsStale],
+  );
 
   const saveDocument = useCallback(
     (path: string): Promise<void> => {
@@ -204,6 +248,7 @@ export function App({
       createLatexEditorState(
         text,
         (next, changed) => {
+          if (changed) projectEpochRef.current += 1;
           setDocuments((current) => {
             const document = current[path];
             return document
@@ -299,6 +344,7 @@ export function App({
           change.selfWrite
         )
           return;
+        projectEpochRef.current += 1;
         void client
           .detectRootDocuments(project.projectId)
           .then(setRootDocuments)
@@ -349,6 +395,12 @@ export function App({
         setBuildState((current) => {
           if (current?.operationId !== state.operationId) setBuildLog("");
           buildOperationRef.current = state.operationId;
+          if (isTerminalBuild(state)) {
+            setDiagnosticEpoch(
+              buildEpochsRef.current.get(state.operationId) ??
+                projectEpochRef.current,
+            );
+          }
           return state;
         });
       }),
@@ -508,8 +560,13 @@ export function App({
       setExpanded(new Set([""]));
       setDocuments({});
       setActivePath(null);
+      setEditorNavigation(null);
       setBuildState(null);
       buildOperationRef.current = null;
+      buildEpochsRef.current.clear();
+      projectEpochRef.current = 0;
+      setDiagnosticEpoch(null);
+      setRawBuildLog(null);
       setBuildLog("");
     } catch (reason) {
       setError(errorMessage(reason));
@@ -612,8 +669,12 @@ export function App({
       await Promise.all(
         Object.keys(documentsRef.current).map((path) => saveDocument(path)),
       );
+      const epoch = projectEpochRef.current;
       const state = await client.requestBuild(project.projectId, "explicit");
       buildOperationRef.current = state.operationId;
+      buildEpochsRef.current.set(state.operationId, epoch);
+      setDiagnosticEpoch(epoch);
+      setRawBuildLog(null);
       setBuildState(state);
     } catch (reason) {
       setError(errorMessage(reason));
@@ -640,7 +701,67 @@ export function App({
       await client.cleanBuildArtifacts(project.projectId);
       setBuildState(null);
       buildOperationRef.current = null;
+      buildEpochsRef.current.clear();
+      setDiagnosticEpoch(null);
+      setRawBuildLog(null);
       setBuildLog("");
+    } catch (reason) {
+      setError(errorMessage(reason));
+    }
+  }
+
+  async function loadRawBuildLog() {
+    if (!project || !buildState?.rawLogAvailable) return;
+    try {
+      const log = await client.readBuildLog(
+        project.projectId,
+        buildState.operationId,
+      );
+      setRawBuildLog(
+        log.text + (log.truncated ? "\n\n[Log truncated by CrypTex]" : ""),
+      );
+    } catch (reason) {
+      setError(errorMessage(reason));
+    }
+  }
+
+  async function navigateToDiagnostic(diagnostic: Diagnostic) {
+    if (!project || !diagnostic.source) return;
+    const path = diagnostic.source.relativePath;
+    const line = diagnostic.source.startLine;
+    const current = documentsRef.current[path];
+    if (current) {
+      setActivePath(path);
+      setEditorNavigation((navigation) => ({
+        path,
+        line,
+        request: (navigation?.request ?? 0) + 1,
+      }));
+      return;
+    }
+    try {
+      const loaded = await client.readTextFile(project.projectId, path);
+      const state = makeEditorState(path, loaded.text);
+      setDocuments((documents) => ({
+        ...documents,
+        [path]: {
+          path,
+          fingerprint: loaded.fingerprint,
+          state,
+          revision: 0,
+          savedRevision: 0,
+          saveStatus: "clean",
+          saveError: undefined,
+          generation: 0,
+          conflict: undefined,
+        },
+      }));
+      setActivePath(path);
+      setEditorNavigation((navigation) => ({
+        path,
+        line,
+        request: (navigation?.request ?? 0) + 1,
+      }));
     } catch (reason) {
       setError(errorMessage(reason));
     }
@@ -665,6 +786,7 @@ export function App({
 
   async function openDocument(path: string) {
     if (!project) return;
+    setEditorNavigation(null);
     if (documents[path]) {
       setActivePath(path);
       return;
@@ -801,6 +923,7 @@ export function App({
   }
   function closeDocument(path: string) {
     const document = documents[path];
+    if (editorNavigation?.path === path) setEditorNavigation(null);
     if (
       document &&
       (document.revision > document.savedRevision ||
@@ -948,6 +1071,77 @@ export function App({
                   </details>
                 ) : null}
               </section>
+              {buildState && isTerminalBuild(buildState) ? (
+                <section
+                  className="problems-panel"
+                  aria-labelledby="problems-title"
+                >
+                  <div className="problems-heading">
+                    <h3 id="problems-title">Problems</h3>
+                    <select
+                      aria-label="Diagnostic severity"
+                      value={diagnosticFilter}
+                      onChange={(event) =>
+                        setDiagnosticFilter(
+                          event.target.value as DiagnosticSeverity | "all",
+                        )
+                      }
+                    >
+                      <option value="all">All</option>
+                      <option value="error">Errors</option>
+                      <option value="warning">Warnings</option>
+                      <option value="information">Information</option>
+                    </select>
+                  </div>
+                  {diagnosticsStale ? (
+                    <p className="stale-diagnostics" role="status">
+                      Diagnostics are from an older document version.
+                    </p>
+                  ) : null}
+                  {visibleDiagnostics.length ? (
+                    <ul className="problem-list">
+                      {visibleDiagnostics.map((diagnostic, index) => (
+                        <li key={diagnosticKey(diagnostic, index)}>
+                          <button
+                            type="button"
+                            className={"problem problem-" + diagnostic.severity}
+                            disabled={!diagnostic.source}
+                            onClick={() =>
+                              void navigateToDiagnostic(diagnostic)
+                            }
+                          >
+                            <strong>{diagnostic.code}</strong>
+                            <span>{diagnostic.message}</span>
+                            <small>
+                              {diagnostic.source
+                                ? diagnostic.source.relativePath +
+                                  ":" +
+                                  diagnostic.source.startLine
+                                : diagnostic.phase}
+                            </small>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>No diagnostics match this filter.</p>
+                  )}
+                  {buildState.rawLogAvailable ? (
+                    <button
+                      type="button"
+                      onClick={() => void loadRawBuildLog()}
+                    >
+                      Open raw LaTeX log
+                    </button>
+                  ) : null}
+                  {rawBuildLog !== null ? (
+                    <details open>
+                      <summary>Raw LaTeX log</summary>
+                      <pre className="build-log">{rawBuildLog}</pre>
+                    </details>
+                  ) : null}
+                </section>
+              ) : null}
               {recoveryInventory &&
               (recoveryInventory.snapshots.length > 0 ||
                 recoveryInventory.warnings.length > 0) ? (
@@ -1158,6 +1352,12 @@ export function App({
             <CodeEditor
               key={`${activePath}:${documents[activePath].generation}`}
               state={documents[activePath].state}
+              diagnostics={activeDiagnosticMarkers}
+              navigation={
+                editorNavigation?.path === activePath
+                  ? editorNavigation
+                  : undefined
+              }
             />
           ) : (
             <p>Select a text file to begin editing.</p>
@@ -1248,6 +1448,19 @@ function errorCode(reason: unknown): string | undefined {
     ? reason.code
     : undefined;
 }
+function isTerminalBuild(state: BuildState): boolean {
+  return !["queued", "running"].includes(state.phase);
+}
+
+function diagnosticKey(diagnostic: Diagnostic, index: number): string {
+  return [
+    diagnostic.code,
+    diagnostic.source?.relativePath ?? "unlocated",
+    diagnostic.source?.startLine ?? 0,
+    index,
+  ].join(":");
+}
+
 function buildLabel(state: BuildState): string {
   switch (state.phase) {
     case "queued":

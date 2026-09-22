@@ -340,9 +340,16 @@ describe("App", () => {
     );
   });
 
-  it("starts an explicit build and exposes its terminal status and cleanup", async () => {
+  it("presents, filters, navigates, and exposes raw build diagnostics", async () => {
     const projectId = "8".repeat(64);
-    const client = conflictClient(projectId, vi.fn(), () => undefined);
+    const readTextFile = vi.fn().mockResolvedValue({
+      apiVersion: 1,
+      relativePath: "main.tex",
+      text: "first\nsecond\nthird",
+      fingerprint: "7".repeat(64),
+      sizeBytes: 18,
+    });
+    const client = conflictClient(projectId, readTextFile, () => undefined);
     client.requestBuild = vi.fn().mockResolvedValue({
       apiVersion: 1,
       projectId,
@@ -354,6 +361,20 @@ describe("App", () => {
       elapsedMs: 1250n,
       exitCode: 0,
       logTruncated: false,
+      rawLogAvailable: true,
+      diagnostics: [
+        {
+          code: "LATEX_ERROR",
+          severity: "error",
+          phase: "latex",
+          message: "Undefined control sequence.",
+          source: {
+            relativePath: "main.tex",
+            startLine: 2,
+            endLine: 2,
+          },
+        },
+      ],
       pdfAvailable: true,
       lastSuccessfulOperationId: "build-9",
       message: null,
@@ -369,6 +390,46 @@ describe("App", () => {
     );
     expect(await screen.findByText("Build succeeded in 1.25s")).toBeVisible();
     expect(screen.getByText("Last successful PDF is available.")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Problems" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: /LATEX_ERROR/ }));
+    await waitFor(() =>
+      expect(readTextFile).toHaveBeenCalledWith(projectId, "main.tex"),
+    );
+    expect(await screen.findByRole("tab", { name: "main.tex" })).toBeVisible();
+    await waitFor(() =>
+      expect(document.querySelector(".cm-diagnostic-error")).not.toBeNull(),
+    );
+
+    fireEvent.change(screen.getByLabelText("Diagnostic severity"), {
+      target: { value: "warning" },
+    });
+    expect(screen.queryByRole("button", { name: /LATEX_ERROR/ })).toBeNull();
+
+    client.readBuildLog = vi.fn().mockResolvedValue({
+      apiVersion: 1,
+      projectId,
+      operationId: "build-9",
+      text: "raw latex log",
+      truncated: false,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Open raw LaTeX log" }));
+    expect(await screen.findByText("raw latex log")).toBeVisible();
+
+    const content = document.querySelector<HTMLElement>(".cm-content");
+    expect(content).not.toBeNull();
+    if (content) {
+      content.textContent = "changed after build";
+      fireEvent.input(content, {
+        inputType: "insertText",
+        data: "changed after build",
+      });
+      expect(
+        await screen.findByText(
+          "Diagnostics are from an older document version.",
+        ),
+      ).toBeVisible();
+    }
+
     fireEvent.click(screen.getByRole("button", { name: "Clean" }));
     await waitFor(() =>
       expect(client.cleanBuildArtifacts).toHaveBeenCalledWith(projectId),
@@ -456,6 +517,8 @@ function buildMocks() {
       elapsedMs: null,
       exitCode: null,
       logTruncated: false,
+      rawLogAvailable: false,
+      diagnostics: [],
       pdfAvailable: false,
       lastSuccessfulOperationId: null,
       message: null,

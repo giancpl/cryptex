@@ -88,3 +88,13 @@ bibliography warnings, and latexmk failures. A source range is emitted only when
 path canonicalizes to a regular file beneath the project root; uncertain locations
 remain unlocated. The latest published operation may expose its bounded raw log
 through an operation-scoped command that revalidates the artifact inside app cache.
+
+## Diagnostic presentation
+
+F2 keeps diagnostic rendering in React and CodeMirror while source validation remains
+in Rust. Terminal build diagnostics can be filtered by severity; located entries open
+the validated project-relative file, select the reported line, and add a non-mutating
+line decoration. Unlocated entries remain visible but cannot navigate. A monotonic
+frontend project-edit epoch labels results stale and removes inline markers after any
+subsequent edit, while the operation-scoped raw log is fetched only on explicit user
+request.

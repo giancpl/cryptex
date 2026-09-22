@@ -43,5 +43,6 @@ managed TeX Live direction, verified installed toolchains, added restricted proc
 execution, explicit build permissions, deterministic root/engine resolution, and safe
 `latexmk` request construction, deterministic scheduling, supervised builds, streamed
 logs, visible build state, cancellation, cache-confined cleanup, and conservative
-structured log diagnostics. Diagnostics presentation and navigation (F2) are next. No
-production release exists.
+structured log diagnostics, a filterable Problems panel, inline source markers, and
+raw-log review. Secure PDF.js viewer integration (F3) is next. No production release
+exists.
