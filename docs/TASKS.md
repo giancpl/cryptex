@@ -113,7 +113,10 @@
   validation, provenance, and JSON import/export.
 - I2: implemented with a searchable keyboard-accessible palette, exact preferred-form
   display, override provenance, literal insertion, and single-step undo.
-- Next: I3 high-confidence notation usage scanner.
+- I3: implemented with a bounded exact-form trie scanner, comment/inline-verbatim/
+  verbatim-environment exclusion, command-boundary checks, Unicode source ranges,
+  project-index limits, and stale-fingerprint rejection.
+- Next: I4 conservative notation consistency diagnostics.
 
 The authoritative sequence is:
 

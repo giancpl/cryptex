@@ -17,6 +17,7 @@ import type { LatexEngine } from "../bindings/LatexEngine";
 import type { EffectiveNotationProfile } from "../bindings/EffectiveNotationProfile";
 import type { NotationProfile } from "../bindings/NotationProfile";
 import type { ProjectNotationOverrides } from "../bindings/ProjectNotationOverrides";
+import type { ProjectNotationUsage } from "../bindings/ProjectNotationUsage";
 import type { RecoveryInventory } from "../bindings/RecoveryInventory";
 import type { RecoverySnapshot } from "../bindings/RecoverySnapshot";
 import type { RootDocumentCandidates } from "../bindings/RootDocumentCandidates";
@@ -43,6 +44,7 @@ export interface BackendClient {
     limit: number,
   ): Promise<CatalogSearchHit[]>;
   notationProfile(projectId: string): Promise<EffectiveNotationProfile>;
+  notationUsage(projectId: string): Promise<ProjectNotationUsage>;
   setGlobalNotationProfile(profile: NotationProfile): Promise<void>;
   resetGlobalNotationProfile(): Promise<void>;
   setProjectNotationOverrides(
@@ -163,6 +165,8 @@ export const backendClient: BackendClient = {
     }),
   notationProfile: (projectId) =>
     invoke<EffectiveNotationProfile>("notation_profile", { projectId }),
+  notationUsage: (projectId) =>
+    invoke<ProjectNotationUsage>("notation_usage", { projectId }),
   setGlobalNotationProfile: (profile) =>
     invoke<void>("set_global_notation_profile", { profile }),
   resetGlobalNotationProfile: () =>

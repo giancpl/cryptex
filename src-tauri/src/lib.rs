@@ -51,6 +51,7 @@ pub fn run() {
             api::project_index,
             api::search_command_catalog,
             api::notation_profile,
+            api::notation_usage,
             api::set_global_notation_profile,
             api::reset_global_notation_profile,
             api::set_project_notation_overrides,

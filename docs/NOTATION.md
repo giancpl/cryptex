@@ -46,3 +46,17 @@ default, global profile, or project override. Selecting **Insert preferred form*
 replaces the current editor selection with the exact preferred string in one undoable
 CodeMirror transaction. Palette insertion does not interpret snippet placeholders and
 does not modify profiles, preambles, packages, or other files.
+
+## High-confidence usage scanning
+
+I3 recognizes only exact declared forms that begin with a LaTeX command. Plain symbols
+and identifiers are intentionally omitted because their meaning is ambiguous without
+mathematical interpretation. A command-boundary check prevents a short form such as
+`\Pr` from matching `\Prime`. Comments, escaped command starts, inline `\verb`/
+`\verb*`, and `verbatim`, `verbatim*`, `lstlisting`, and `minted` environments are
+skipped.
+
+Results include concept ID, matched form, preferred status, source range, and disk
+fingerprint. The project scan uses the current index limits and marks itself incomplete
+when input is skipped, truncated, unreadable, or changed since indexing. It never turns
+uncertain text into a usage.

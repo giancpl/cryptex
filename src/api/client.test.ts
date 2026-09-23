@@ -16,6 +16,7 @@ it("exposes a mockable typed backend contract", async () => {
     projectIndex: () => Promise.reject(new Error("not used")),
     searchCatalog: () => Promise.reject(new Error("not used")),
     notationProfile: () => Promise.reject(new Error("not used")),
+    notationUsage: () => Promise.reject(new Error("not used")),
     setGlobalNotationProfile: () => Promise.reject(new Error("not used")),
     resetGlobalNotationProfile: () => Promise.reject(new Error("not used")),
     setProjectNotationOverrides: () => Promise.reject(new Error("not used")),

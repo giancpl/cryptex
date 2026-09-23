@@ -241,3 +241,14 @@ the preferred exact form and its default/global/project provenance. Insertion re
 an explicit user action and dispatches one CodeMirror transaction. It uses a literal
 insertion path separate from catalog snippet expansion, so notation text is never
 interpreted as a placeholder language.
+
+## Notation usage scanner
+
+I3 derives a versioned best-effort usage snapshot from the effective I1 profile and
+the current G3 project index. A bounded byte trie recognizes declared exact LaTeX
+command forms with command-boundary checks while a linear scanner excludes comments,
+inline verbatim, and known verbatim environments. Plain identifiers are deliberately
+omitted as ambiguous. Every accepted usage carries its concept ID, exact form,
+preferred flag, fingerprint, and Unicode-aware source range. Files whose fresh
+backend read no longer matches the indexed fingerprint are omitted and mark the
+snapshot incomplete rather than publishing stale evidence.
