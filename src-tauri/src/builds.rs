@@ -2,17 +2,18 @@ use crate::api::{EnginePreferenceState, RootPreferenceState, TrustState};
 use cryptex_core::{
     api::{
         API_VERSION, ApiError, BuildLog, BuildOutput, BuildOutputStream, BuildPhase, BuildReason,
-        BuildState, Diagnostic, OperationId,
+        BuildState, Diagnostic, ForwardSynctexRequest, OperationId, SynctexPosition,
     },
     build::resolve_build_configuration,
     compiler::{BuildRequestError, LATEXMK_EXECUTABLE, LatexmkRequest, LatexmkRequestBuilder},
     diagnostics::{parse_latex_log_file, read_latex_log_file},
-    process::{OutputStream, ProcessLimits, ProcessOutcome, ProcessSupervisor},
+    process::{CancellationToken, OutputStream, ProcessLimits, ProcessOutcome, ProcessSupervisor},
     project::ProjectService,
     scheduler::{
         BuildScheduler, CancelDisposition, CompletionDisposition, ScheduleDisposition,
         ScheduledBuild,
     },
+    synctex::parse_forward_output,
     toolchain::ToolchainService,
 };
 use std::{
@@ -24,6 +25,8 @@ use std::{
 use tauri::{AppHandle, Emitter, Manager, State, ipc::Response};
 
 const MAX_PDF_BYTES: u64 = 128 * 1024 * 1024;
+const MAX_SYNCTEX_BYTES: u64 = 64 * 1024 * 1024;
+const SYNCTEX_EXECUTABLE: &str = "synctex";
 
 struct ExecutableBuild {
     request: LatexmkRequest,
@@ -46,6 +49,7 @@ struct LogArtifact {
 struct PdfArtifact {
     operation_id: OperationId,
     path: PathBuf,
+    synctex: Option<PathBuf>,
 }
 
 pub struct BuildRuntime {
@@ -302,6 +306,134 @@ pub fn read_build_pdf(
     Ok(Response::new(bytes))
 }
 
+#[tauri::command(rename_all = "camelCase")]
+pub async fn forward_synctex(
+    request: ForwardSynctexRequest,
+    runtime: State<'_, BuildRuntime>,
+    projects: State<'_, Mutex<ProjectService>>,
+    toolchain: State<'_, ToolchainService>,
+) -> Result<Option<SynctexPosition>, ApiError> {
+    let ForwardSynctexRequest {
+        project_id,
+        operation_id,
+        relative_path,
+        line,
+        column,
+    } = request;
+    if line == 0 || line > i32::MAX as u32 || column > i32::MAX as u32 {
+        return Err(api_error(
+            "SYNCTEX_INVALID_POSITION",
+            "the source line or column is outside the supported range".to_owned(),
+            false,
+        ));
+    }
+    let (source, project_root) = {
+        let projects = projects
+            .lock()
+            .map_err(|_| internal("project service lock is poisoned"))?;
+        let source = projects
+            .resolve_project_file(&project_id, &relative_path)
+            .map_err(|error| api_error("SYNCTEX_SOURCE_ERROR", error.to_string(), false))?;
+        let project_root = projects
+            .project_root(&project_id)
+            .map_err(|error| api_error("SYNCTEX_SOURCE_ERROR", error.to_string(), false))?;
+        (source, project_root)
+    };
+    if source.to_string_lossy().contains(':') {
+        return Err(api_error(
+            "SYNCTEX_UNSUPPORTED_PATH",
+            "SyncTeX forward search does not support a colon in the source path".to_owned(),
+            false,
+        ));
+    }
+    let (pdf, synctex) = {
+        let state = runtime
+            .state
+            .lock()
+            .map_err(|_| internal("build runtime lock is poisoned"))?;
+        let artifact = state.pdfs.get(&project_id).ok_or_else(|| {
+            api_error(
+                "SYNCTEX_UNAVAILABLE",
+                "compile the project successfully before using SyncTeX".to_owned(),
+                false,
+            )
+        })?;
+        if artifact.operation_id != operation_id {
+            return Err(api_error(
+                "SYNCTEX_STALE_PDF",
+                "the displayed PDF is no longer the retained successful build".to_owned(),
+                true,
+            ));
+        }
+        let synctex = artifact.synctex.clone().ok_or_else(|| {
+            api_error(
+                "SYNCTEX_UNAVAILABLE",
+                "the successful build did not produce SyncTeX data".to_owned(),
+                false,
+            )
+        })?;
+        (artifact.path.clone(), synctex)
+    };
+    runtime
+        .request_builder
+        .validate_artifact_file(&pdf)
+        .and_then(|_| runtime.request_builder.validate_artifact_file(&synctex))
+        .map_err(|error| api_error("SYNCTEX_UNAVAILABLE", error.to_string(), false))?;
+    let executable = toolchain
+        .verified_executable(SYNCTEX_EXECUTABLE)
+        .map_err(|message| api_error("TOOLCHAIN_NOT_READY", message, true))?;
+    let input = format!("{line}:{column}:{}", source.to_string_lossy());
+    let requested_operation = operation_id;
+    tauri::async_runtime::spawn_blocking(move || {
+        let supervisor = ProcessSupervisor::new(
+            BTreeMap::from([(SYNCTEX_EXECUTABLE.to_owned(), executable)]),
+            vec![project_root.clone()],
+            ProcessLimits {
+                timeout: std::time::Duration::from_secs(10),
+                max_log_bytes: 256 * 1024,
+                cpu_seconds: 5,
+                ..ProcessLimits::default()
+            },
+        )
+        .map_err(|error| api_error("SYNCTEX_EXECUTION_ERROR", error.to_string(), true))?;
+        let result = supervisor
+            .run(
+                SYNCTEX_EXECUTABLE,
+                &[
+                    "view".into(),
+                    "-i".into(),
+                    input.into(),
+                    "-o".into(),
+                    pdf.into_os_string(),
+                ],
+                &project_root,
+                &CancellationToken::default(),
+                |_| {},
+            )
+            .map_err(|error| api_error("SYNCTEX_EXECUTION_ERROR", error.to_string(), true))?;
+        if result.outcome != ProcessOutcome::Succeeded {
+            let message = String::from_utf8_lossy(&result.stderr)
+                .trim()
+                .chars()
+                .take(1_024)
+                .collect::<String>();
+            return Err(api_error(
+                "SYNCTEX_UNAVAILABLE",
+                if message.is_empty() {
+                    "SyncTeX could not map this source position".to_owned()
+                } else {
+                    message
+                },
+                false,
+            ));
+        }
+        parse_forward_output(&result.stdout, &project_id, requested_operation)
+            .map_err(|error| api_error("SYNCTEX_OUTPUT_ERROR", error.to_string(), false))
+    })
+    .await
+    .map_err(|error| internal(&format!("SyncTeX worker failed: {error}")))?
+}
+
 fn spawn_build(app: AppHandle, build: ScheduledBuild<ExecutableBuild>) {
     let running = status_for(
         &build,
@@ -438,12 +570,24 @@ fn run_build(app: AppHandle, build: ScheduledBuild<ExecutableBuild>) {
                 PdfArtifact {
                     operation_id: operation_id.clone(),
                     path: path.clone(),
+                    synctex: runtime
+                        .request_builder
+                        .retain_synctex_artifact(
+                            &artifacts.synctex,
+                            &project_id,
+                            &operation_id.0,
+                            MAX_SYNCTEX_BYTES,
+                        )
+                        .ok(),
                 },
             );
             if let Some(previous) = previous
                 && previous.path != path
             {
                 let _ = std::fs::remove_file(previous.path);
+                if let Some(synctex) = previous.synctex {
+                    let _ = std::fs::remove_file(synctex);
+                }
             }
         } else {
             phase = BuildPhase::Failed;

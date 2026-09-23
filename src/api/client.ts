@@ -8,6 +8,7 @@ import type { BuildOutput } from "../bindings/BuildOutput";
 import type { BuildReason } from "../bindings/BuildReason";
 import type { BuildState } from "../bindings/BuildState";
 import type { FileTreePage } from "../bindings/FileTreePage";
+import type { ForwardSynctexRequest } from "../bindings/ForwardSynctexRequest";
 import type { HealthResponse } from "../bindings/HealthResponse";
 import type { LatexEngine } from "../bindings/LatexEngine";
 import type { RecoveryInventory } from "../bindings/RecoveryInventory";
@@ -17,6 +18,7 @@ import type { ProjectSummary } from "../bindings/ProjectSummary";
 import type { ProjectTrustState } from "../bindings/ProjectTrustState";
 import type { ProjectFileChange } from "../bindings/ProjectFileChange";
 import type { TextDocument } from "../bindings/TextDocument";
+import type { SynctexPosition } from "../bindings/SynctexPosition";
 import type { ToolchainReadiness } from "../bindings/ToolchainReadiness";
 import type { WriteResult } from "../bindings/WriteResult";
 
@@ -72,6 +74,14 @@ export interface BackendClient {
     projectId: string,
     operationId: string,
   ): Promise<Uint8Array>;
+  forwardSynctex(
+    this: void,
+    projectId: string,
+    operationId: string,
+    relativePath: string,
+    line: number,
+    column: number,
+  ): Promise<SynctexPosition | null>;
   projectTrust(this: void, projectId: string): Promise<ProjectTrustState>;
   setProjectPermission(
     this: void,
@@ -144,6 +154,16 @@ export const backendClient: BackendClient = {
       operationId,
     });
     return new Uint8Array(response);
+  },
+  forwardSynctex: (projectId, operationId, relativePath, line, column) => {
+    const request: ForwardSynctexRequest = {
+      projectId,
+      operationId,
+      relativePath,
+      line,
+      column,
+    };
+    return invoke<SynctexPosition | null>("forward_synctex", { request });
   },
   projectTrust: (projectId) =>
     invoke<ProjectTrustState>("project_trust", { projectId }),

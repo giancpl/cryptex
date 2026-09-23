@@ -58,7 +58,8 @@ pub fn run() {
             builds::cancel_build,
             builds::clean_build_artifacts,
             builds::read_build_log,
-            builds::read_build_pdf
+            builds::read_build_pdf,
+            builds::forward_synctex
         ])
         .run(tauri::generate_context!())
         .expect("failed to run CrypTex");

@@ -11,6 +11,7 @@ import type { RecoverySnapshot } from "./bindings/RecoverySnapshot";
 import type { RootDocumentCandidates } from "./bindings/RootDocumentCandidates";
 import type { ProjectSummary } from "./bindings/ProjectSummary";
 import type { TextDocument } from "./bindings/TextDocument";
+import type { SynctexPosition } from "./bindings/SynctexPosition";
 import {
   backendClient,
   pickProjectDirectory,
@@ -74,6 +75,10 @@ export function App({
     data: Uint8Array;
   } | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
+  const [synctexTarget, setSynctexTarget] = useState<
+    (SynctexPosition & { requestId: number }) | null
+  >(null);
+  const [synctexMessage, setSynctexMessage] = useState<string | null>(null);
   const [diagnosticFilter, setDiagnosticFilter] = useState<
     DiagnosticSeverity | "all"
   >("all");
@@ -87,6 +92,7 @@ export function App({
   const directoriesRef = useRef(directories);
   const buildOperationRef = useRef<string | null>(null);
   const pdfRequestRef = useRef(0);
+  const synctexRequestRef = useRef(0);
   const projectEpochRef = useRef(0);
   const buildEpochsRef = useRef(new Map<string, number>());
   const saveQueues = useRef(new Map<string, Promise<void>>());
@@ -401,6 +407,7 @@ export function App({
       client.onBuildState((state) => {
         if (disposed || state.projectId !== project.projectId) return;
         pdfRequestRef.current += 1;
+        synctexRequestRef.current += 1;
         setBuildState((current) => {
           if (current?.operationId !== state.operationId) setBuildLog("");
           buildOperationRef.current = state.operationId;
@@ -455,6 +462,10 @@ export function App({
             operationId: buildState.operationId,
             data,
           });
+        if (pdfRequestRef.current === request) {
+          setSynctexTarget(null);
+          setSynctexMessage(null);
+        }
       })
       .catch((reason: unknown) => {
         if (pdfRequestRef.current === request)
@@ -608,6 +619,9 @@ export function App({
       pdfRequestRef.current += 1;
       setPdfPreview(null);
       setPdfError(null);
+      synctexRequestRef.current += 1;
+      setSynctexTarget(null);
+      setSynctexMessage(null);
       setBuildLog("");
     } catch (reason) {
       setError(errorMessage(reason));
@@ -749,6 +763,9 @@ export function App({
       pdfRequestRef.current += 1;
       setPdfPreview(null);
       setPdfError(null);
+      synctexRequestRef.current += 1;
+      setSynctexTarget(null);
+      setSynctexMessage(null);
       setBuildLog("");
     } catch (reason) {
       setError(errorMessage(reason));
@@ -767,6 +784,40 @@ export function App({
       );
     } catch (reason) {
       setError(errorMessage(reason));
+    }
+  }
+
+  async function forwardSearch() {
+    if (!project || !activePath || !pdfPreview) return;
+    const document = documentsRef.current[activePath];
+    if (!document) return;
+    const cursor = document.state.selection.main.head;
+    const sourceLine = document.state.doc.lineAt(cursor);
+    const request = ++synctexRequestRef.current;
+    setSynctexMessage("Locating source position in PDF…");
+    try {
+      const target = await client.forwardSynctex(
+        project.projectId,
+        pdfPreview.operationId,
+        activePath,
+        sourceLine.number,
+        cursor - sourceLine.from + 1,
+      );
+      if (synctexRequestRef.current !== request) return;
+      if (!target) {
+        setSynctexTarget(null);
+        setSynctexMessage(
+          "No SyncTeX position was found for this source line.",
+        );
+        return;
+      }
+      setSynctexTarget({ ...target, requestId: request });
+      setSynctexMessage(null);
+    } catch (reason) {
+      if (synctexRequestRef.current === request) {
+        setSynctexTarget(null);
+        setSynctexMessage(errorMessage(reason));
+      }
     }
   }
 
@@ -1339,6 +1390,13 @@ export function App({
               >
                 Save
               </button>
+              <button
+                type="button"
+                onClick={() => void forwardSearch()}
+                disabled={!pdfPreview}
+              >
+                Show in PDF
+              </button>
               <span role="status">
                 {documents[activePath].saveStatus === "error"
                   ? documents[activePath].saveError
@@ -1411,12 +1469,14 @@ export function App({
         <section className="pane pdf-pane" aria-labelledby="pane-pdf">
           <h1 id="pane-pdf">PDF</h1>
           {pdfError ? <p role="alert">{pdfError}</p> : null}
+          {synctexMessage ? <p role="status">{synctexMessage}</p> : null}
           {pdfPreview && pdfPreview.projectId === project?.projectId ? (
             <PdfViewer
               key={pdfPreview.projectId}
               projectId={pdfPreview.projectId}
               operationId={pdfPreview.operationId}
               data={pdfPreview.data}
+              forwardTarget={synctexTarget ?? undefined}
             />
           ) : (
             <p>A successful build will appear here.</p>

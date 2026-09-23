@@ -372,6 +372,31 @@ pub struct RecoverySnapshot {
     pub updated_at_ms: u64,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
+pub struct ForwardSynctexRequest {
+    pub project_id: String,
+    pub operation_id: OperationId,
+    pub relative_path: String,
+    pub line: u32,
+    pub column: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
+pub struct SynctexPosition {
+    pub api_version: u16,
+    pub project_id: String,
+    pub operation_id: OperationId,
+    pub page: u32,
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -39,4 +39,19 @@ for artifact in minimal.pdf cryptocode.pdf tikz.pdf biber.pdf unicode-engines.pd
   test -s "$artifact"
 done
 
-echo "TeX Live spike fixtures passed"
+check_forward_synctex() {
+  source_file=$1
+  source_line=$2
+  output_pdf=$3
+  synctex view -i "$source_line:1:$work_dir/$source_file" -o "$work_dir/$output_pdf" > synctex-forward.txt
+  grep -q '^SyncTeX result begin' synctex-forward.txt
+  grep -q '^Page:[1-9][0-9]*' synctex-forward.txt
+  grep -q '^h:' synctex-forward.txt
+  grep -q '^v:' synctex-forward.txt
+}
+
+check_forward_synctex minimal.tex 3 minimal.pdf
+check_forward_synctex cryptocode.tex 4 cryptocode.pdf
+check_forward_synctex unicode-engines.tex 4 unicode-engines.pdf
+
+echo "TeX Live spike fixtures and forward SyncTeX queries passed"

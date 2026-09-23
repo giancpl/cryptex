@@ -31,7 +31,10 @@ the same operation-scoped cache validation to PDFs, transfers bounded binary dat
 instead of paths, and uses a local canvas-only PDF.js integration without annotation,
 form, XFA, or scripting layers. F4 publishes successful PDFs as atomic immutable
 operation snapshots; stale IPC responses are rejected by a monotonic frontend token,
-and replacement/removal is serialized with bounded reads.
+and replacement/removal is serialized with bounded reads. F5 accepts only a validated
+in-project source path and the currently retained operation, executes only the verified
+managed `synctex` binary through the restricted supervisor, bounds time/output, and
+rejects non-finite or malformed coordinates before they reach the viewer.
 
 Restricted TeX is not a proven sandbox. OS sandboxing is a release investigation,
 not a reason to weaken the controls above.

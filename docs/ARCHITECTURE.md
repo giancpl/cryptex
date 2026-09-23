@@ -119,3 +119,15 @@ hold the registry guard while consuming the bounded snapshot, so replacement can
 retire it midway. The frontend adds a monotonic request token: responses from older
 builds or projects cannot replace the current preview. A new valid document refreshes
 the existing viewer instance, preserving page and zoom where possible.
+
+## Forward SyncTeX
+
+F5 atomically retains the successful `.synctex.gz` beside its operation-specific PDF.
+A typed request contains only an open project identity, retained operation identity,
+validated project-relative source path, and bounded line/column. Rust re-verifies the
+managed `synctex` executable and both retained artifacts, then invokes `synctex view`
+through the restricted process supervisor with a ten-second timeout and bounded output.
+The tolerant parser returns the first finite page-space `h`, `v`, `W`, and `H` result
+as a normalized DTO. React suppresses stale requests; PDF.js changes page, preserves
+zoom, scrolls toward the result, and renders a temporary noninteractive marker. Missing
+data or unmatched lines degrade to a visible unavailable state.

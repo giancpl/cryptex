@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { SynctexPosition } from "../bindings/SynctexPosition";
 
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3;
@@ -36,6 +37,7 @@ interface PdfViewerProps {
   projectId: string;
   operationId: string;
   data: Uint8Array;
+  forwardTarget?: (SynctexPosition & { requestId: number }) | undefined;
   loadDocument?: PdfDocumentLoader;
 }
 
@@ -43,12 +45,15 @@ export function PdfViewer({
   projectId,
   operationId,
   data,
+  forwardTarget,
   loadDocument = loadPdfDocument,
 }: PdfViewerProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const marker = useRef<HTMLDivElement>(null);
   const [document, setDocument] = useState<PdfDocument | null>(null);
   const [page, setPage] = useState(() => storedView(projectId).page);
   const [zoom, setZoom] = useState(() => storedView(projectId).zoom);
+  const [renderScale, setRenderScale] = useState(1);
   const [query, setQuery] = useState("");
   const [matches, setMatches] = useState<number[]>([]);
   const [searching, setSearching] = useState(false);
@@ -92,6 +97,9 @@ export function PdfViewer({
           viewport = pdfPage.getViewport({ scale: safeScale });
         }
         const target = canvas.current;
+        setRenderScale(
+          viewport.width / pdfPage.getViewport({ scale: 1 }).width,
+        );
         target.width = Math.max(1, Math.floor(viewport.width));
         target.height = Math.max(1, Math.floor(viewport.height));
         renderTask = pdfPage.render({
@@ -109,6 +117,28 @@ export function PdfViewer({
       renderTask?.cancel();
     };
   }, [document, page, zoom]);
+
+  useEffect(() => {
+    if (
+      !document ||
+      !forwardTarget ||
+      forwardTarget.operationId !== operationId
+    )
+      return;
+    if (forwardTarget.page > document.numPages) {
+      setMessage("SyncTeX returned a page outside the loaded PDF.");
+      return;
+    }
+    setPage(forwardTarget.page);
+  }, [document, forwardTarget, operationId]);
+
+  useEffect(() => {
+    if (forwardTarget?.page !== page) return;
+    marker.current?.scrollIntoView?.({
+      block: "center",
+      inline: "center",
+    });
+  }, [forwardTarget, page, renderScale]);
 
   useEffect(() => {
     localStorage.setItem(
@@ -236,7 +266,27 @@ export function PdfViewer({
       {message ? <p role="alert">{message}</p> : null}
       {!document && !message ? <p>Loading PDF…</p> : null}
       <div className="pdf-canvas-container">
-        <canvas ref={canvas} aria-label={"PDF page " + page} />
+        <div className="pdf-page-surface">
+          <canvas ref={canvas} aria-label={"PDF page " + page} />
+          {forwardTarget &&
+          forwardTarget.operationId === operationId &&
+          forwardTarget.page === page ? (
+            <div
+              key={forwardTarget.requestId}
+              ref={marker}
+              className="synctex-marker"
+              aria-label="SyncTeX source position"
+              style={{
+                left: forwardTarget.x * renderScale,
+                top:
+                  Math.max(0, forwardTarget.y - forwardTarget.height) *
+                  renderScale,
+                width: Math.max(12, forwardTarget.width * renderScale),
+                height: Math.max(12, forwardTarget.height * renderScale),
+              }}
+            />
+          ) : null}
+        </div>
       </div>
     </section>
   );

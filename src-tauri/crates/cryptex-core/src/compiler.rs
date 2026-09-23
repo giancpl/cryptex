@@ -87,6 +87,35 @@ impl LatexmkRequestBuilder {
         operation_id: &str,
         max_bytes: u64,
     ) -> Result<PathBuf, BuildRequestError> {
+        self.retain_artifact(source, project_id, operation_id, "pdf", max_bytes, true)
+    }
+
+    pub fn retain_synctex_artifact(
+        &self,
+        source: &Path,
+        project_id: &str,
+        operation_id: &str,
+        max_bytes: u64,
+    ) -> Result<PathBuf, BuildRequestError> {
+        self.retain_artifact(
+            source,
+            project_id,
+            operation_id,
+            "synctex.gz",
+            max_bytes,
+            false,
+        )
+    }
+
+    fn retain_artifact(
+        &self,
+        source: &Path,
+        project_id: &str,
+        operation_id: &str,
+        suffix: &str,
+        max_bytes: u64,
+        require_pdf_markers: bool,
+    ) -> Result<PathBuf, BuildRequestError> {
         let project_id = ProjectId::parse(project_id)?;
         let source = self.validate_artifact_file(source)?;
         let project_directory = self.build_cache_root.join(project_id.as_str());
@@ -100,16 +129,18 @@ impl LatexmkRequestBuilder {
             return Err(BuildRequestError::InvalidBuildCache);
         }
         let bytes = self.read_bounded_artifact(&source, max_bytes)?;
-        let header_limit = bytes.len().min(1024);
-        let trailer_start = bytes.len().saturating_sub(1024);
-        if !bytes[..header_limit]
-            .windows(5)
-            .any(|value| value == b"%PDF-")
-            || !bytes[trailer_start..]
+        if require_pdf_markers {
+            let header_limit = bytes.len().min(1024);
+            let trailer_start = bytes.len().saturating_sub(1024);
+            if !bytes[..header_limit]
                 .windows(5)
-                .any(|value| value == b"%%EOF")
-        {
-            return Err(BuildRequestError::InvalidPdfArtifact);
+                .any(|value| value == b"%PDF-")
+                || !bytes[trailer_start..]
+                    .windows(5)
+                    .any(|value| value == b"%%EOF")
+            {
+                return Err(BuildRequestError::InvalidPdfArtifact);
+            }
         }
         if operation_id.len() != 26
             || !operation_id.starts_with("build-")
@@ -125,8 +156,8 @@ impl LatexmkRequestBuilder {
         if !retained_directory.starts_with(&project_directory) || !retained_directory.is_dir() {
             return Err(BuildRequestError::InvalidBuildCache);
         }
-        let target = retained_directory.join(format!("{operation_id}.pdf"));
-        let temporary = retained_directory.join(format!(".{operation_id}.tmp"));
+        let target = retained_directory.join(format!("{operation_id}.{suffix}"));
+        let temporary = retained_directory.join(format!(".{operation_id}.{suffix}.tmp"));
         let mut output = OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -559,6 +590,18 @@ mod tests {
             b"%PDF-1.7\nfirst pdf\n%%EOF\n"
         );
         assert!(retained.ends_with("published/build-00000000000000000001.pdf"));
+        fs::write(&request.artifacts.synctex, b"compressed synctex").unwrap();
+        let retained_synctex = fixture
+            .builder
+            .retain_synctex_artifact(
+                &request.artifacts.synctex,
+                &fixture.configuration.project_id,
+                "build-00000000000000000001",
+                32,
+            )
+            .unwrap();
+        assert!(retained_synctex.ends_with("published/build-00000000000000000001.synctex.gz"));
+        assert_eq!(fs::read(retained_synctex).unwrap(), b"compressed synctex");
         assert!(matches!(
             fixture.builder.retain_pdf_artifact(
                 &request.artifacts.pdf,

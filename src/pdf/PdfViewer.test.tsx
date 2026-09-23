@@ -104,6 +104,51 @@ describe("PdfViewer", () => {
     expect(destroyed[0]).toHaveBeenCalled();
   });
 
+  it("navigates to and highlights a forward SyncTeX target", async () => {
+    const loader: PdfDocumentLoader = vi.fn().mockResolvedValue({
+      numPages: 3,
+      getPage: () =>
+        Promise.resolve({
+          getViewport: ({ scale }: { scale: number }) => ({
+            width: 100 * scale,
+            height: 200 * scale,
+          }),
+          getTextContent: () => Promise.resolve({ items: [] }),
+          render: () => ({ promise: Promise.resolve(), cancel: vi.fn() }),
+        }),
+      destroy: vi.fn().mockResolvedValue(undefined),
+    });
+    render(
+      <PdfViewer
+        projectId="synctex-project"
+        operationId="build-3"
+        data={new Uint8Array([3])}
+        loadDocument={loader}
+        forwardTarget={{
+          apiVersion: 1,
+          projectId: "synctex-project",
+          operationId: "build-3",
+          requestId: 1,
+          page: 3,
+          x: 25,
+          y: 50,
+          width: 40,
+          height: 10,
+        }}
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText("PDF page")).toHaveValue(3),
+    );
+    const marker = screen.getByLabelText("SyncTeX source position");
+    expect(marker).toHaveStyle({
+      left: "25px",
+      top: "40px",
+      width: "40px",
+      height: "12px",
+    });
+  });
+
   it("contains malformed PDF failures without crashing", async () => {
     const loader: PdfDocumentLoader = vi
       .fn()

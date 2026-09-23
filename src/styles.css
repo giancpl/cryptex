@@ -542,3 +542,28 @@ input {
   box-shadow: 0 3px 14px #0009;
   max-width: none;
 }
+.pdf-page-surface {
+  display: inline-block;
+  position: relative;
+}
+.pdf-page-surface canvas {
+  display: block;
+}
+.synctex-marker {
+  animation: synctex-pulse 1.2s ease-out;
+  background: #f6c34455;
+  border: 2px solid #f6c344;
+  box-shadow: 0 0 0 3px #15191d99;
+  pointer-events: none;
+  position: absolute;
+}
+@keyframes synctex-pulse {
+  from {
+    opacity: 0;
+    transform: scale(1.4);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

@@ -11,3 +11,4 @@ pub mod watcher;
 pub mod recovery;
 pub mod scheduler;
 pub mod settings;
+pub mod synctex;

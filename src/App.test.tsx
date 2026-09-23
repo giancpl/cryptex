@@ -12,8 +12,17 @@ import type { BuildState } from "./bindings/BuildState";
 import type { ProjectFileChange } from "./bindings/ProjectFileChange";
 
 vi.mock("./pdf/PdfViewer", () => ({
-  PdfViewer: ({ operationId }: { operationId: string }) => (
-    <div data-testid="pdf-preview">{operationId}</div>
+  PdfViewer: ({
+    operationId,
+    forwardTarget,
+  }: {
+    operationId: string;
+    forwardTarget?: { page: number };
+  }) => (
+    <div data-testid="pdf-preview">
+      {operationId}
+      {forwardTarget ? " · page " + forwardTarget.page : ""}
+    </div>
   ),
 }));
 
@@ -429,6 +438,74 @@ describe("App", () => {
     );
   });
 
+  it("maps the active source cursor to the retained PDF", async () => {
+    const projectId = "9".repeat(64);
+    const operationId = "build-00000000000000000009";
+    const client = conflictClient(
+      projectId,
+      vi.fn().mockResolvedValue({
+        apiVersion: 1,
+        relativePath: "main.tex",
+        text: "first line\nsecond line",
+        fingerprint: "7".repeat(64),
+        sizeBytes: 22,
+      }),
+      () => undefined,
+    );
+    let emitBuild: ((state: BuildState) => void) | undefined;
+    client.onBuildState = vi
+      .fn()
+      .mockImplementation((listener: (state: BuildState) => void) => {
+        emitBuild = listener;
+        return Promise.resolve(() => undefined);
+      });
+    client.readBuildPdf = vi.fn().mockResolvedValue(new Uint8Array([1]));
+    client.forwardSynctex = vi.fn().mockResolvedValue({
+      apiVersion: 1,
+      projectId,
+      operationId,
+      page: 3,
+      x: 72,
+      y: 144,
+      width: 120,
+      height: 12,
+    });
+
+    render(
+      <App client={client} pickDirectory={() => Promise.resolve("/paper")} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open folder" }));
+    const source = await screen.findByRole("button", { name: /main\.tex/ });
+    fireEvent.click(source);
+    await screen.findByRole("tab", { name: "main.tex" });
+    act(() => {
+      emitBuild?.(pdfBuildState(projectId, operationId, "succeeded", true));
+    });
+    await screen.findByTestId("pdf-preview");
+
+    fireEvent.click(screen.getByRole("button", { name: "Show in PDF" }));
+    await waitFor(() =>
+      expect(client.forwardSynctex).toHaveBeenCalledWith(
+        projectId,
+        operationId,
+        "main.tex",
+        1,
+        1,
+      ),
+    );
+    expect(await screen.findByTestId("pdf-preview")).toHaveTextContent(
+      "page 3",
+    );
+
+    vi.mocked(client.forwardSynctex).mockResolvedValueOnce(null);
+    fireEvent.click(screen.getByRole("button", { name: "Show in PDF" }));
+    expect(
+      await screen.findByText(
+        "No SyncTeX position was found for this source line.",
+      ),
+    ).toBeVisible();
+  });
+
   it("presents, filters, navigates, and exposes raw build diagnostics", async () => {
     const projectId = "8".repeat(64);
     const readTextFile = vi.fn().mockResolvedValue({
@@ -648,6 +725,7 @@ function buildMocks() {
     cleanBuildArtifacts: vi.fn().mockResolvedValue(undefined),
     readBuildLog: vi.fn().mockRejectedValue(new Error("not used")),
     readBuildPdf: vi.fn().mockRejectedValue(new Error("not used")),
+    forwardSynctex: vi.fn().mockResolvedValue(null),
     onBuildState: vi.fn().mockResolvedValue(() => undefined),
     onBuildOutput: vi.fn().mockResolvedValue(() => undefined),
   };

@@ -153,6 +153,15 @@ impl ProjectService {
             .ok_or(ProjectError::UnknownProject)
     }
 
+    pub fn resolve_project_file(
+        &self,
+        project_id: &str,
+        relative_path: &str,
+    ) -> Result<PathBuf, ProjectError> {
+        self.resolve_file(project_id, relative_path)
+            .map(|(_, resolved)| resolved)
+    }
+
     pub fn list_directory(
         &self,
         project_id: &str,
