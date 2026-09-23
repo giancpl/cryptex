@@ -36,3 +36,11 @@ file is written into a project.
 G2 must stop or degrade to a partial/skipped result at these limits. It must not expand
 macros, execute TeX, infer mathematical equivalence, or claim to parse the complete TeX
 language. G3 may add graph resolution but may not weaken these per-scan bounds.
+
+## Per-file scanner
+
+G2 implements a linear lexical pass over UTF-8 source. Comments, inline `\verb`, and
+`verbatim`, `verbatim*`, `lstlisting`, and `minted` bodies are excluded. Balanced
+arguments are inspected without expanding or executing macros. Unsupported and
+ambiguous constructs are omitted; malformed constructs produce partial status and
+structured issues while later top-level commands remain discoverable where possible.

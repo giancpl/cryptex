@@ -149,3 +149,13 @@ provenance; file status and issues expose incomplete scans. Serialized scanner l
 bound project files, total/per-file bytes, records, brace depth, and command length.
 See [Project index schema](PROJECT_INDEX.md). The contract deliberately cannot assert
 complete TeX semantics.
+
+## Tolerant per-file extraction
+
+G2 provides a pure Rust, single-pass lexical scanner. It skips TeX comments, inline
+`\verb`, and common verbatim environments; balances braced arguments without macro
+expansion; and extracts sections, labels, references, citations, environments, macro
+definitions, includes, packages, and the real `cryptocode` `\pseudocode` construct.
+Malformed input yields partial records plus structured issues. File size, record count,
+brace depth, and command length are bounded by the G1 contract; invalid paths and
+fingerprints are rejected before scanning.
