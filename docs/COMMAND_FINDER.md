@@ -22,3 +22,16 @@ ID. Queries are limited to 256 UTF-8 bytes, results to 100, and package names ar
 validated. The regression budget runs 1,000 searches of the bundled catalog in under
 five seconds in an unoptimized test build; interactive callers request only the first
 small result page.
+
+## Palette and insertion
+
+H4 opens Command Finder from the editor toolbar or `Ctrl/Cmd+K`. Search, context
+selection, result traversal, insertion, and dismissal are keyboard operable. Result
+details show the exact signature, summary, provenance, and any package requirement
+that the project index does not currently contain.
+
+Insertion is always explicit. TextMate-style placeholders are expanded in the active
+CodeMirror buffer; an existing selection replaces the first placeholder default, and
+the first field remains selected. The replacement is dispatched as one editor
+transaction and therefore one undo step. CrypTex neither edits `\usepackage` lines
+nor installs packages on the user’s behalf.

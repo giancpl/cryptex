@@ -49,4 +49,4 @@ race-safe retention of the last successful PDF, and bidirectional SyncTeX naviga
 between source and preview. The bounded best-effort project-index contract is frozen;
 bounded tolerant extraction and incremental include/dependency indexing are implemented;
 a live outline provides project-wide indexed navigation; the versioned command-catalog
-contract is frozen and an offline, version-pinned baseline LaTeX/cryptocode catalog is bundled and fixture-tested; bounded deterministic local search now ranks exact, prefix, fuzzy, context, and detected-package evidence. Finder UI and safe insertion (H4) are next. No production release exists.
+contract is frozen and an offline, version-pinned baseline LaTeX/cryptocode catalog is bundled and fixture-tested; bounded deterministic local search now ranks exact, prefix, fuzzy, context, and detected-package evidence. The keyboard-first Command Finder now provides reviewed, undoable snippet insertion with explicit package warnings. Completion, hover, and signatures (H5) are next. No production release exists.

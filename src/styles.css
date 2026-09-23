@@ -599,3 +599,146 @@ input {
     transform: scale(1);
   }
 }
+
+.finder-backdrop {
+  align-items: flex-start;
+  background: #050709c7;
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding-top: 9vh;
+  position: fixed;
+  z-index: 20;
+}
+.command-finder {
+  background: #11171c;
+  border: 1px solid #40515d;
+  border-radius: 8px;
+  box-shadow: 0 18px 60px #000b;
+  max-height: 78vh;
+  max-width: 760px;
+  overflow: hidden;
+  width: min(760px, calc(100vw - 32px));
+}
+.command-finder > header {
+  align-items: start;
+  border-bottom: 1px solid #2b343e;
+  display: flex;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+.command-finder h2,
+.command-finder h3,
+.command-finder p {
+  margin: 0;
+}
+.command-finder header h2 {
+  font-size: 1rem;
+}
+.command-finder header p {
+  color: #82909f;
+  font-size: 0.75rem;
+  margin-top: 3px;
+}
+.command-finder button,
+.command-finder input,
+.command-finder select {
+  background: #182127;
+  border: 1px solid #40515d;
+  border-radius: 4px;
+  color: #e8edf2;
+}
+.command-finder header button {
+  cursor: pointer;
+  font-size: 1.1rem;
+}
+.finder-search {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr auto;
+  padding: 12px 16px;
+}
+.finder-search input {
+  padding: 8px;
+  width: 100%;
+}
+.finder-search select {
+  height: 100%;
+  padding: 0 8px;
+}
+.finder-body {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(260px, 1.1fr);
+  min-height: 280px;
+}
+.finder-results {
+  border-right: 1px solid #2b343e;
+  list-style: none;
+  margin: 0;
+  max-height: 52vh;
+  overflow: auto;
+  padding: 8px;
+}
+.finder-results button {
+  background: transparent;
+  border-color: transparent;
+  cursor: pointer;
+  display: grid;
+  gap: 2px;
+  grid-template-columns: auto 1fr auto;
+  padding: 7px;
+  text-align: left;
+  width: 100%;
+}
+.finder-results button.selected {
+  background: #23313a;
+  border-color: #4c6677;
+}
+.finder-results code {
+  color: #f0b35b;
+  margin-right: 8px;
+}
+.finder-results small {
+  color: #82909f;
+}
+.finder-details {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+}
+.finder-details > code {
+  background: #090c0f;
+  border: 1px solid #2b343e;
+  color: #e6c07b;
+  padding: 8px;
+}
+.finder-details p {
+  color: #b7c0c9;
+  font-size: 0.85rem;
+}
+.finder-details .finder-warning {
+  background: #352719;
+  border: 1px solid #8d6534;
+  color: #f4d7aa;
+  padding: 8px;
+}
+.finder-details small {
+  color: #82909f;
+}
+.finder-details button {
+  align-self: flex-end;
+  cursor: pointer;
+  margin-top: auto;
+  padding: 7px 18px;
+}
+@media (max-width: 850px) {
+  .finder-body {
+    grid-template-columns: 1fr;
+  }
+  .finder-results {
+    border-bottom: 1px solid #2b343e;
+    border-right: 0;
+    max-height: 28vh;
+  }
+}

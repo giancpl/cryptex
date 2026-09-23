@@ -202,3 +202,13 @@ fixed weights, then applies explicit context and detected-package boosts. Exact 
 precede prefixes and bounded Levenshtein fuzzy matches; score, match kind, and stable
 entry ID define total ordering. Queries, result counts, and package names are bounded.
 The project context is derived only from package records already extracted by G3.
+
+## Command Finder and insertion
+
+H4 exposes catalog search through a typed backend command scoped to an open project;
+the backend, not the frontend, derives installed-package evidence from the current G3
+index. React owns the modal palette, explicit context selector, keyboard navigation,
+details, provenance, and missing-package warning. Selecting Insert sends only the
+already-returned inert snippet to the active CodeMirror view. Placeholder expansion
+replaces the current selection and dispatches one document transaction, so the entire
+insertion is one undo step. It never edits a preamble or installs a package.

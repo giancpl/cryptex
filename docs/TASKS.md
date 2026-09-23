@@ -102,7 +102,10 @@
 - H3: implemented with normalized exact/prefix/bounded-fuzzy search, deterministic
   score and ID tie-breaking, editor-context and indexed-package boosts, bounded inputs,
   golden ranking queries, Unicode coverage, and an interactive performance budget.
-- Next: H4 Finder UI and safe insertion.
+- H4: implemented with a Ctrl/Cmd+K accessible palette, backend-scoped search,
+  contextual details and provenance, missing-package warnings, selection-aware snippet
+  expansion, and a single undoable CodeMirror insertion transaction.
+- Next: H5 completion, hover, and signatures.
 
 The authoritative sequence is:
 

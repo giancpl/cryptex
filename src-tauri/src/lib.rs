@@ -2,6 +2,7 @@ mod api;
 mod builds;
 
 use cryptex_core::{
+    catalog::CommandCatalog,
     project::ProjectService,
     recovery::RecoveryService,
     settings::{EnginePreferences, RootPreferences},
@@ -18,6 +19,7 @@ pub fn run() {
         .manage(Mutex::new(ProjectService::default()))
         .manage(api::ProjectWatchers::new(HashMap::new()))
         .manage(api::ProjectIndexes::default())
+        .manage(CommandCatalog::bundled().expect("bundled command catalog must be valid"))
         .setup(|app| {
             let settings = app.path().app_config_dir()?.join("root-documents.json");
             app.manage(Mutex::new(RootPreferences::load(settings)?));
@@ -43,6 +45,7 @@ pub fn run() {
             api::toolchain_readiness,
             api::open_project,
             api::project_index,
+            api::search_command_catalog,
             api::list_directory,
             api::read_text_file,
             api::write_text_file,

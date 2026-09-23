@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { EditorState } from "@codemirror/state";
 import type { BuildOutput } from "./bindings/BuildOutput";
 import type { BuildState } from "./bindings/BuildState";
+import type { CatalogSearchHit } from "./bindings/CatalogSearchHit";
+import type { CommandContext } from "./bindings/CommandContext";
 import type { Diagnostic } from "./bindings/Diagnostic";
 import type { DiagnosticSeverity } from "./bindings/DiagnosticSeverity";
 import type { FileTreeEntry } from "./bindings/FileTreeEntry";
@@ -22,6 +24,7 @@ import {
 import { CodeEditor } from "./editor/CodeEditor";
 import { PdfViewer } from "./pdf/PdfViewer";
 import { createLatexEditorState } from "./editor/editorState";
+import { CommandFinder } from "./finder/CommandFinder";
 
 interface OpenDocument {
   path: string;
@@ -86,6 +89,12 @@ export function App({
     DiagnosticSeverity | "all"
   >("all");
   const [diagnosticEpoch, setDiagnosticEpoch] = useState<number | null>(null);
+  const [finderOpen, setFinderOpen] = useState(false);
+  const [editorInsertion, setEditorInsertion] = useState<{
+    path: string;
+    request: number;
+    snippet: string;
+  } | null>(null);
   const [editorNavigation, setEditorNavigation] = useState<{
     path: string;
     line: number;
@@ -97,6 +106,7 @@ export function App({
   const buildOperationRef = useRef<string | null>(null);
   const pdfRequestRef = useRef(0);
   const synctexRequestRef = useRef(0);
+  const insertionRequestRef = useRef(0);
   const projectEpochRef = useRef(0);
   const buildEpochsRef = useRef(new Map<string, number>());
   const saveQueues = useRef(new Map<string, Promise<void>>());
@@ -110,6 +120,17 @@ export function App({
   useEffect(() => {
     documentsRef.current = documents;
   }, [documents]);
+
+  useEffect(() => {
+    const openFinder = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        if (project && activePath) setFinderOpen(true);
+      }
+    };
+    window.addEventListener("keydown", openFinder);
+    return () => window.removeEventListener("keydown", openFinder);
+  }, [activePath, project]);
 
   useEffect(() => {
     directoriesRef.current = directories;
@@ -588,6 +609,30 @@ export function App({
     };
   }, []);
 
+  const searchCatalog = useCallback(
+    (query: string, context: CommandContext | null) =>
+      project
+        ? client.searchCatalog(project.projectId, query, context, 50)
+        : Promise.resolve([]),
+    [client, project],
+  );
+
+  const acknowledgeCatalogInsertion = useCallback((request: number) => {
+    setEditorInsertion((current) =>
+      current?.request === request ? null : current,
+    );
+  }, []);
+
+  function insertCatalogCommand(hit: CatalogSearchHit) {
+    if (!activePath || !documentsRef.current[activePath]) return;
+    setEditorInsertion({
+      path: activePath,
+      request: ++insertionRequestRef.current,
+      snippet: hit.entry.snippet,
+    });
+    setFinderOpen(false);
+  }
+
   async function openProject() {
     if (
       Object.values(documents).some(
@@ -620,6 +665,8 @@ export function App({
       setDocuments({});
       setActivePath(null);
       setEditorNavigation(null);
+      setEditorInsertion(null);
+      setFinderOpen(false);
       setBuildState(null);
       buildOperationRef.current = null;
       buildEpochsRef.current.clear();
@@ -1440,6 +1487,13 @@ export function App({
             <div className="save-bar">
               <button
                 type="button"
+                title="Command Finder (Ctrl/Cmd+K)"
+                onClick={() => setFinderOpen(true)}
+              >
+                Command Finder
+              </button>
+              <button
+                type="button"
                 onClick={() => void saveDocument(activePath)}
                 disabled={
                   documents[activePath].saveStatus === "saving" ||
@@ -1519,6 +1573,12 @@ export function App({
                   ? editorNavigation
                   : undefined
               }
+              insertion={
+                editorInsertion?.path === activePath
+                  ? editorInsertion
+                  : undefined
+              }
+              onInsertionApplied={acknowledgeCatalogInsertion}
             />
           ) : (
             <p>Select a text file to begin editing.</p>
@@ -1542,6 +1602,13 @@ export function App({
           )}
         </section>
       </div>
+      {finderOpen && project && activePath ? (
+        <CommandFinder
+          onClose={() => setFinderOpen(false)}
+          onInsert={insertCatalogCommand}
+          search={searchCatalog}
+        />
+      ) : null}
     </main>
   );
 }

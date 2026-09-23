@@ -7,6 +7,8 @@ import type { BuildLog } from "../bindings/BuildLog";
 import type { BuildOutput } from "../bindings/BuildOutput";
 import type { BuildReason } from "../bindings/BuildReason";
 import type { BuildState } from "../bindings/BuildState";
+import type { CatalogSearchHit } from "../bindings/CatalogSearchHit";
+import type { CommandContext } from "../bindings/CommandContext";
 import type { FileTreePage } from "../bindings/FileTreePage";
 import type { ForwardSynctexRequest } from "../bindings/ForwardSynctexRequest";
 import type { HealthResponse } from "../bindings/HealthResponse";
@@ -31,6 +33,12 @@ export interface BackendClient {
   openProject(root: string): Promise<ProjectSummary>;
   listDirectory(projectId: string, relativePath: string): Promise<FileTreePage>;
   projectIndex(projectId: string): Promise<ProjectIndex>;
+  searchCatalog(
+    projectId: string,
+    query: string,
+    context: CommandContext | null,
+    limit: number,
+  ): Promise<CatalogSearchHit[]>;
   readTextFile(projectId: string, relativePath: string): Promise<TextDocument>;
   writeTextFile(
     this: void,
@@ -134,6 +142,13 @@ export const backendClient: BackendClient = {
     invoke<FileTreePage>("list_directory", { projectId, relativePath }),
   projectIndex: (projectId) =>
     invoke<ProjectIndex>("project_index", { projectId }),
+  searchCatalog: (projectId, query, context, limit) =>
+    invoke<CatalogSearchHit[]>("search_command_catalog", {
+      projectId,
+      query,
+      context,
+      limit,
+    }),
   readTextFile: (projectId, relativePath) =>
     invoke<TextDocument>("read_text_file", { projectId, relativePath }),
   writeTextFile: (projectId, relativePath, text, expectedFingerprint) =>

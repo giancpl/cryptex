@@ -768,6 +768,63 @@ describe("App", () => {
       expect(client.cleanBuildArtifacts).toHaveBeenCalledWith(projectId),
     );
   });
+  it("inserts a catalog snippet as one undoable editor change", async () => {
+    const projectId = "8".repeat(64);
+    const client = conflictClient(
+      projectId,
+      vi.fn().mockResolvedValue({
+        apiVersion: 1,
+        relativePath: "main.tex",
+        text: "base",
+        fingerprint: "1".repeat(64),
+        sizeBytes: 4,
+      }),
+      () => undefined,
+    );
+    client.searchCatalog = vi.fn().mockResolvedValue([
+      {
+        entry: {
+          id: "latex.emph",
+          command: "\\emph",
+          displayName: "Emphasis",
+          summary: "Emphasizes text.",
+          concepts: ["emphasis"],
+          synonyms: [],
+          requirements: [],
+          signature: "\\emph{text}",
+          snippet: "\\emph{${1:text}}$0",
+          examples: [],
+          documentationUrl: "https://latexref.xyz/",
+          contexts: ["text"],
+          provenance: {
+            sourceTitle: "LaTeX",
+            sourceUrl: "https://www.latex-project.org/help/documentation/",
+            sourceVersion: "2026-06-01",
+          },
+        },
+        score: 1_000,
+        matchKind: "exact",
+        contextMatch: true,
+        requirementsSatisfied: true,
+      },
+    ]);
+
+    render(
+      <App client={client} pickDirectory={() => Promise.resolve("/paper")} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open folder" }));
+    fireEvent.click(await screen.findByRole("button", { name: /main\.tex/ }));
+    await screen.findByRole("tab", { name: "main.tex" });
+    fireEvent.click(screen.getByRole("button", { name: "Command Finder" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Insert" }));
+
+    const content = document.querySelector<HTMLElement>(".cm-content");
+    await waitFor(() => expect(content).toHaveTextContent("\\emph{text}base"));
+    if (!content) return;
+    fireEvent.keyDown(content, { key: "z", ctrlKey: true });
+    await waitFor(() => expect(content).toHaveTextContent("base"));
+    expect(content).not.toHaveTextContent("\\emph");
+  });
 });
 
 function conflictClient(
@@ -863,6 +920,7 @@ function rootCandidates(projectId: string) {
 
 function buildMocks() {
   return {
+    searchCatalog: vi.fn().mockResolvedValue([]),
     projectIndex: vi.fn().mockResolvedValue({
       apiVersion: 1,
       schemaVersion: 1,

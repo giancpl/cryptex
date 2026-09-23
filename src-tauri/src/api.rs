@@ -5,6 +5,8 @@ use cryptex_core::{
         RootDocumentCandidates, TextDocument, ToolchainReadiness, WriteResult,
     },
     build::{BuildResolutionError, resolve_build_configuration as resolve_configuration},
+    catalog::{CommandCatalog, CommandContext},
+    catalog_search::{CatalogSearchError, CatalogSearchHit, CatalogSearchQuery},
     index::{ProjectIndex, ScannerLimits, project::ProjectIndexer},
     project::{ProjectError, ProjectService},
     recovery::{RecoveryError, RecoveryService},
@@ -109,6 +111,28 @@ pub fn project_index(
             message: "the project index is not available".to_owned(),
             retryable: true,
         })
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn search_command_catalog(
+    project_id: String,
+    query: String,
+    context: Option<CommandContext>,
+    limit: u16,
+    indexes: State<'_, ProjectIndexes>,
+    catalog: State<'_, CommandCatalog>,
+) -> Result<Vec<CatalogSearchHit>, ApiError> {
+    let indexes = indexes
+        .lock()
+        .map_err(|_| internal_error("project index lock is poisoned"))?;
+    let index = indexes.get(&project_id).ok_or_else(|| ApiError {
+        api_version: API_VERSION,
+        code: "PROJECT_INDEX_UNAVAILABLE".to_owned(),
+        message: "the project index is not available".to_owned(),
+        retryable: true,
+    })?;
+    let request = CatalogSearchQuery::from_project_index(query, context, limit, index);
+    catalog.search(&request).map_err(catalog_search_error)
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -393,6 +417,15 @@ fn settings_error(error: SettingsError) -> ApiError {
         code: "SETTINGS_ERROR".to_owned(),
         message: error.to_string(),
         retryable,
+    }
+}
+
+fn catalog_search_error(error: CatalogSearchError) -> ApiError {
+    ApiError {
+        api_version: API_VERSION,
+        code: "INVALID_CATALOG_SEARCH".to_owned(),
+        message: error.to_string(),
+        retryable: false,
     }
 }
 
