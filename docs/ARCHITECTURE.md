@@ -170,3 +170,12 @@ paths, then rebuild include and reverse-dependency edges from cached records. Mi
 includes and include cycles become nonfatal index issues. Full rescans use cancellation
 tokens and publish atomically only after completion, so stale work cannot replace the
 current generation.
+
+## Indexed navigation consumers
+
+G4 builds the initial index on a blocking worker during project open, stores it in the
+Rust backend, and applies normalized watcher changes before emitting them to React. A
+typed read-only command returns snapshots; the frontend cannot supply paths to index.
+The collapsible outline lists validated indexed ranges, keeps ambiguous definitions as
+separate candidates, marks references whose label target is absent, and opens the chosen
+file/range through the existing validated file command.

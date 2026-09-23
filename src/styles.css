@@ -171,6 +171,38 @@ input {
 .project-pane > .file-tree {
   padding-left: 0;
 }
+.project-outline {
+  border-top: 1px solid #27313b;
+  margin: 14px 0;
+  padding-top: 10px;
+}
+.project-outline summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.project-outline ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+.project-outline button {
+  background: transparent;
+  border: 0;
+  color: #c8d0d8;
+  cursor: pointer;
+  display: grid;
+  gap: 2px;
+  padding: 5px 0;
+  text-align: left;
+  width: 100%;
+}
+.project-outline button span,
+.project-outline button small {
+  color: #82909f;
+  font-size: 0.7rem;
+}
+
 .tree-entry {
   background: transparent;
   border: 0;

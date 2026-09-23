@@ -16,6 +16,7 @@ import type { RecoveryInventory } from "../bindings/RecoveryInventory";
 import type { RecoverySnapshot } from "../bindings/RecoverySnapshot";
 import type { RootDocumentCandidates } from "../bindings/RootDocumentCandidates";
 import type { ProjectSummary } from "../bindings/ProjectSummary";
+import type { ProjectIndex } from "../bindings/ProjectIndex";
 import type { ProjectTrustState } from "../bindings/ProjectTrustState";
 import type { ProjectFileChange } from "../bindings/ProjectFileChange";
 import type { TextDocument } from "../bindings/TextDocument";
@@ -29,6 +30,7 @@ export interface BackendClient {
   toolchainReadiness(): Promise<ToolchainReadiness>;
   openProject(root: string): Promise<ProjectSummary>;
   listDirectory(projectId: string, relativePath: string): Promise<FileTreePage>;
+  projectIndex(projectId: string): Promise<ProjectIndex>;
   readTextFile(projectId: string, relativePath: string): Promise<TextDocument>;
   writeTextFile(
     this: void,
@@ -130,6 +132,8 @@ export const backendClient: BackendClient = {
   openProject: (root) => invoke<ProjectSummary>("open_project", { root }),
   listDirectory: (projectId, relativePath) =>
     invoke<FileTreePage>("list_directory", { projectId, relativePath }),
+  projectIndex: (projectId) =>
+    invoke<ProjectIndex>("project_index", { projectId }),
   readTextFile: (projectId, relativePath) =>
     invoke<TextDocument>("read_text_file", { projectId, relativePath }),
   writeTextFile: (projectId, relativePath, text, expectedFingerprint) =>

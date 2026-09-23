@@ -13,6 +13,7 @@ it("exposes a mockable typed backend contract", async () => {
     toolchainReadiness: () => Promise.reject(new Error("not used")),
     openProject: () => Promise.reject(new Error("not used")),
     listDirectory: () => Promise.reject(new Error("not used")),
+    projectIndex: () => Promise.reject(new Error("not used")),
     readTextFile: () => Promise.reject(new Error("not used")),
     writeTextFile: () => Promise.reject(new Error("not used")),
     detectRootDocuments: () => Promise.reject(new Error("not used")),

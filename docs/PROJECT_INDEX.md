@@ -53,3 +53,10 @@ It records forward and reverse edges, reports missing targets and cycles, and co
 the normalized C3 watcher DTO. Modify/create events scan only existing changed sources;
 rename/remove events evict vanished paths. A rescan uses a cancellable unpublished
 snapshot and increments the generation only when the result is committed.
+
+## Navigation consumers
+
+G4 exposes the current backend snapshot to a collapsible outline. Entries remain
+file/range based and preserve duplicate names as distinct candidates. Reference target
+status is derived only from exact indexed labels; a missing marker is best-effort and is
+not a TeX correctness claim. Navigation rereads the selected file through `FileService`.

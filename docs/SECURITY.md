@@ -41,7 +41,9 @@ project-relative path contract to indexed files and issues. G2 rejects invalid s
 inputs and enforces file, record, nesting, and command bounds while performing no TeX
 execution or macro expansion. G3 canonicalizes discovered files beneath the project
 root, tracks canonical directories to stop symlink loops, and publishes full rescans
-only after bounded cancellable work completes.
+only after bounded cancellable work completes. G4 exposes only index DTO snapshots;
+navigation still rereads a backend-validated project-relative file rather than trusting
+a frontend or index path.
 
 Restricted TeX is not a proven sandbox. OS sandboxing is a release investigation,
 not a reason to weaken the controls above.

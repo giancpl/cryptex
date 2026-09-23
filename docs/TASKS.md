@@ -90,7 +90,10 @@
 - G3: implemented with bounded deterministic discovery, canonical symlink-cycle
   protection, include/reverse-dependency graphs, missing/cycle issues, watcher-shaped
   incremental modify/rename/delete updates, generations, and atomic cancellable rescans.
-- Next: G4 navigation consumers.
+- G4: implemented with backend-owned live snapshots, watcher-driven refresh, a
+  collapsible outline, duplicate candidates, conservative missing-label indicators,
+  and validated source-range navigation.
+- Next: H1 versioned command-catalog schema.
 
 The authoritative sequence is:
 
@@ -105,6 +108,6 @@ The authoritative sequence is:
 9. B3 fingerprinted reads and atomic writes.
 10. C1 CodeMirror and document tabs.
 
-Continue with G4, H1-H5, I1-I5, and J1-J6 in
+Continue with H1-H5, I1-I5, and J1-J6 in
 dependency order. M8-M10 remain blocked until J6. Each task is an independently
 reviewable change with tests and the global acceptance rules.

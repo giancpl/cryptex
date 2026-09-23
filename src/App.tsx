@@ -10,6 +10,8 @@ import type { RecoveryInventory } from "./bindings/RecoveryInventory";
 import type { RecoverySnapshot } from "./bindings/RecoverySnapshot";
 import type { RootDocumentCandidates } from "./bindings/RootDocumentCandidates";
 import type { ProjectSummary } from "./bindings/ProjectSummary";
+import type { ProjectIndex } from "./bindings/ProjectIndex";
+import type { IndexRecord } from "./bindings/IndexRecord";
 import type { TextDocument } from "./bindings/TextDocument";
 import type { SynctexPosition } from "./bindings/SynctexPosition";
 import {
@@ -49,6 +51,7 @@ export function App({
   pickDirectory = pickProjectDirectory,
 }: AppProps) {
   const [project, setProject] = useState<ProjectSummary | null>(null);
+  const [projectIndex, setProjectIndex] = useState<ProjectIndex | null>(null);
   const [directories, setDirectories] = useState<Record<string, FileTreePage>>(
     {},
   );
@@ -353,12 +356,16 @@ export function App({
     let unsubscribe: (() => void) | undefined;
     void client
       .onProjectFileChange((change) => {
-        if (
-          disposed ||
-          change.projectId !== project.projectId ||
-          change.selfWrite
-        )
-          return;
+        if (disposed || change.projectId !== project.projectId) return;
+        void client
+          .projectIndex(project.projectId)
+          .then((index) => {
+            if (!disposed) setProjectIndex(index);
+          })
+          .catch((reason: unknown) => {
+            if (!disposed) setError(errorMessage(reason));
+          });
+        if (change.selfWrite) return;
         projectEpochRef.current += 1;
         void client
           .detectRootDocuments(project.projectId)
@@ -597,12 +604,14 @@ export function App({
     setError(null);
     try {
       const opened = await client.openProject(selected);
-      const [root, detectedRoots, recoveries] = await Promise.all([
+      const [root, detectedRoots, recoveries, index] = await Promise.all([
         client.listDirectory(opened.projectId, ""),
         client.detectRootDocuments(opened.projectId),
         client.listRecoverySnapshots(opened.projectId),
+        client.projectIndex(opened.projectId),
       ]);
       setProject(opened);
+      setProjectIndex(index);
       setDirectories({ "": root });
       setRootDocuments(detectedRoots);
       setRecoveryInventory(recoveries);
@@ -1299,6 +1308,18 @@ export function App({
                   ))}
                 </section>
               ) : null}
+              {projectIndex ? (
+                <ProjectOutline
+                  index={projectIndex}
+                  onNavigate={(path, record) =>
+                    void navigateToSource(
+                      path,
+                      record.range.startLine,
+                      record.range.startColumn,
+                    )
+                  }
+                />
+              ) : null}
               <div className="tree-options">
                 <label>
                   <input
@@ -1523,6 +1544,71 @@ export function App({
       </div>
     </main>
   );
+}
+
+function ProjectOutline({
+  index,
+  onNavigate,
+}: {
+  index: ProjectIndex;
+  onNavigate: (path: string, record: IndexRecord) => void;
+}) {
+  const labels = new Set(
+    index.files.flatMap((file) =>
+      file.records
+        .filter((record) => record.kind === "label")
+        .map((record) => record.name),
+    ),
+  );
+  const entries = index.files.flatMap((file) =>
+    file.records
+      .filter((record) =>
+        [
+          "section",
+          "label",
+          "reference",
+          "citation",
+          "environment",
+          "macroDefinition",
+          "cryptocode",
+        ].includes(record.kind),
+      )
+      .map((record) => ({ file: file.relativePath, record })),
+  );
+  return (
+    <details className="project-outline" open>
+      <summary>Outline ({entries.length})</summary>
+      {entries.length ? (
+        <ul>
+          {entries.map(({ file, record }, index) => {
+            const missing =
+              record.kind === "reference" && !labels.has(record.name);
+            return (
+              <li key={file + ":" + record.range.startByte + ":" + index}>
+                <button type="button" onClick={() => onNavigate(file, record)}>
+                  <span>{outlineKind(record.kind)}</span>
+                  <strong>{record.name}</strong>
+                  <small>
+                    {file}:{record.range.startLine}
+                    {missing ? " � missing target" : ""}
+                  </small>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p>No indexed symbols.</p>
+      )}
+      {index.issues.length ? (
+        <p role="status">{index.issues.length} index issue(s).</p>
+      ) : null}
+    </details>
+  );
+}
+
+function outlineKind(kind: IndexRecord["kind"]): string {
+  return kind.replace(/([A-Z])/g, " $1").toLowerCase();
 }
 
 interface FileTreeProps {

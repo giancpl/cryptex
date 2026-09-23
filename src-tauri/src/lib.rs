@@ -17,6 +17,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(Mutex::new(ProjectService::default()))
         .manage(api::ProjectWatchers::new(HashMap::new()))
+        .manage(api::ProjectIndexes::default())
         .setup(|app| {
             let settings = app.path().app_config_dir()?.join("root-documents.json");
             app.manage(Mutex::new(RootPreferences::load(settings)?));
@@ -41,6 +42,7 @@ pub fn run() {
             api::health,
             api::toolchain_readiness,
             api::open_project,
+            api::project_index,
             api::list_directory,
             api::read_text_file,
             api::write_text_file,

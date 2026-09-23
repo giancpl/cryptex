@@ -5,6 +5,7 @@ use cryptex_core::{
         RootDocumentCandidates, TextDocument, ToolchainReadiness, WriteResult,
     },
     build::{BuildResolutionError, resolve_build_configuration as resolve_configuration},
+    index::{ProjectIndex, ScannerLimits, project::ProjectIndexer},
     project::{ProjectError, ProjectService},
     recovery::{RecoveryError, RecoveryService},
     settings::{EnginePreferences, RootPreferences, SettingsError},
@@ -12,10 +13,15 @@ use cryptex_core::{
     trust::{TrustError, TrustService},
     watcher::ProjectWatcher,
 };
-use std::{collections::HashMap, path::PathBuf, sync::Mutex};
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 use tauri::{AppHandle, Emitter, State};
 
 pub type ProjectWatchers = Mutex<HashMap<String, ProjectWatcher>>;
+pub type ProjectIndexes = Arc<Mutex<HashMap<String, ProjectIndexer>>>;
 pub type RootPreferenceState = Mutex<RootPreferences>;
 pub type EnginePreferenceState = Mutex<EnginePreferences>;
 pub type TrustState = Mutex<TrustService>;
@@ -35,11 +41,12 @@ pub fn toolchain_readiness(toolchain: State<'_, ToolchainService>) -> ToolchainR
 }
 
 #[tauri::command]
-pub fn open_project(
+pub async fn open_project(
     root: String,
     app: AppHandle,
     projects: State<'_, Mutex<ProjectService>>,
     watchers: State<'_, ProjectWatchers>,
+    indexes: State<'_, ProjectIndexes>,
 ) -> Result<ProjectSummary, ApiError> {
     let summary = projects
         .lock()
@@ -47,11 +54,29 @@ pub fn open_project(
         .open(root)
         .map_err(project_error)?;
     let project_id = summary.project_id.clone();
+    let index_project_id = project_id.clone();
+    let index_root = PathBuf::from(&summary.canonical_root);
+    let indexer = tauri::async_runtime::spawn_blocking(move || {
+        ProjectIndexer::open(index_project_id, index_root, ScannerLimits::default())
+    })
+    .await
+    .map_err(|error| internal_error(&format!("project index worker failed: {error}")))?
+    .map_err(index_error)?;
+    indexes
+        .lock()
+        .map_err(|_| internal_error("project index lock is poisoned"))?
+        .insert(project_id.clone(), indexer);
     let emitted_project_id = project_id.clone();
+    let watcher_indexes = indexes.inner().clone();
     let watcher = ProjectWatcher::start(
         project_id.clone(),
         PathBuf::from(&summary.canonical_root),
         move |change| {
+            if let Ok(mut indexes) = watcher_indexes.lock()
+                && let Some(indexer) = indexes.get_mut(&change.project_id)
+            {
+                let _ = indexer.apply_change(&change);
+            }
             let _ = app.emit("project-file-change", change);
         },
     )
@@ -66,6 +91,24 @@ pub fn open_project(
         .map_err(|_| internal_error("watcher service lock is poisoned"))?
         .insert(emitted_project_id, watcher);
     Ok(summary)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn project_index(
+    project_id: String,
+    indexes: State<'_, ProjectIndexes>,
+) -> Result<ProjectIndex, ApiError> {
+    indexes
+        .lock()
+        .map_err(|_| internal_error("project index lock is poisoned"))?
+        .get(&project_id)
+        .map(ProjectIndexer::snapshot)
+        .ok_or_else(|| ApiError {
+            api_version: API_VERSION,
+            code: "PROJECT_INDEX_UNAVAILABLE".to_owned(),
+            message: "the project index is not available".to_owned(),
+            retryable: true,
+        })
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -352,6 +395,16 @@ fn settings_error(error: SettingsError) -> ApiError {
         retryable,
     }
 }
+
+fn index_error(error: cryptex_core::index::project::ProjectIndexError) -> ApiError {
+    ApiError {
+        api_version: API_VERSION,
+        code: "PROJECT_INDEX_ERROR".to_owned(),
+        message: error.to_string(),
+        retryable: true,
+    }
+}
+
 fn project_error(error: ProjectError) -> ApiError {
     let code = match &error {
         ProjectError::UnknownProject => "PROJECT_NOT_OPEN",

@@ -135,6 +135,102 @@ describe("App", () => {
     );
   });
 
+  it("renders indexed navigation candidates and opens the selected source range", async () => {
+    const projectId = "6".repeat(64);
+    const readTextFile = vi
+      .fn()
+      .mockImplementation((_id: string, path: string) =>
+        Promise.resolve({
+          apiVersion: 1,
+          relativePath: path,
+          text: "first\nsecond",
+          fingerprint: "5".repeat(64),
+          sizeBytes: 12,
+        }),
+      );
+    const client = conflictClient(projectId, readTextFile, () => undefined);
+    const range = {
+      startByte: 0n,
+      endByte: 10n,
+      startLine: 2,
+      startColumn: 1,
+      endLine: 2,
+      endColumn: 8,
+    };
+    client.projectIndex = vi.fn().mockResolvedValue({
+      apiVersion: 1,
+      schemaVersion: 1,
+      projectId,
+      generation: 2n,
+      completeness: "bestEffort",
+      scannerLimits: {
+        maxProjectFiles: 10000,
+        maxTotalBytes: 268435456n,
+        maxFileBytes: 5242880n,
+        maxRecordsPerFile: 50000,
+        maxBraceDepth: 256,
+        maxCommandBytes: 4096,
+      },
+      files: [
+        {
+          relativePath: "main.tex",
+          fingerprint: "5".repeat(64),
+          status: "complete",
+          records: [
+            {
+              kind: "label",
+              name: "shared",
+              target: null,
+              range,
+              confidence: "exact",
+              provenance: "lexical",
+            },
+            {
+              kind: "reference",
+              name: "missing",
+              target: null,
+              range,
+              confidence: "exact",
+              provenance: "lexical",
+            },
+          ],
+          issues: [],
+        },
+        {
+          relativePath: "sections/proof.tex",
+          fingerprint: "4".repeat(64),
+          status: "complete",
+          records: [
+            {
+              kind: "label",
+              name: "shared",
+              target: null,
+              range,
+              confidence: "exact",
+              provenance: "lexical",
+            },
+          ],
+          issues: [],
+        },
+      ],
+      issues: [],
+    });
+    render(
+      <App client={client} pickDirectory={() => Promise.resolve("/paper")} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open folder" }));
+    const candidates = await screen.findAllByRole("button", { name: /shared/ });
+    expect(candidates).toHaveLength(2);
+    expect(
+      screen.getByRole("button", { name: /missing target/ }),
+    ).toBeVisible();
+    fireEvent.click(candidates[1]!);
+    expect(
+      await screen.findByRole("tab", { name: "proof.tex" }),
+    ).toHaveAttribute("aria-selected", "true");
+    expect(readTextFile).toHaveBeenCalledWith(projectId, "sections/proof.tex");
+  });
+
   it("reloads a clean open buffer after an external modification", async () => {
     let notify: ((change: ProjectFileChange) => void) | undefined;
     const projectId = "b".repeat(64);
@@ -767,6 +863,23 @@ function rootCandidates(projectId: string) {
 
 function buildMocks() {
   return {
+    projectIndex: vi.fn().mockResolvedValue({
+      apiVersion: 1,
+      schemaVersion: 1,
+      projectId: "a".repeat(64),
+      generation: 1n,
+      completeness: "bestEffort",
+      scannerLimits: {
+        maxProjectFiles: 10000,
+        maxTotalBytes: 268435456n,
+        maxFileBytes: 5242880n,
+        maxRecordsPerFile: 50000,
+        maxBraceDepth: 256,
+        maxCommandBytes: 4096,
+      },
+      files: [],
+      issues: [],
+    }),
     resolveBuildConfiguration: vi.fn(),
     setProjectEngine: vi.fn(),
     requestBuild: vi.fn().mockResolvedValue({
