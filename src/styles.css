@@ -742,3 +742,40 @@ input {
     max-height: 28vh;
   }
 }
+
+.cm-tooltip-autocomplete .cm-completionDetail {
+  color: #82909f;
+  font-style: normal;
+  margin-left: 0.7rem;
+}
+.cm-catalog-info {
+  display: grid;
+  gap: 5px;
+  max-width: 28rem;
+  padding: 8px;
+}
+.cm-catalog-info code,
+.cm-signature-help code {
+  color: #e6c07b;
+}
+.cm-catalog-info small,
+.cm-signature-help small {
+  color: #9da9b4;
+}
+.cm-signature-help {
+  background: #11171cf2;
+  border: 1px solid #40515d;
+  border-radius: 4px;
+  bottom: 8px;
+  box-shadow: 0 4px 14px #0008;
+  display: flex;
+  gap: 12px;
+  left: 16px;
+  max-width: calc(100% - 32px);
+  padding: 7px 9px;
+  position: absolute;
+  z-index: 5;
+}
+.cm-signature-help[hidden] {
+  display: none;
+}

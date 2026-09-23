@@ -35,3 +35,16 @@ CodeMirror buffer; an existing selection replaces the first placeholder default,
 the first field remains selected. The replacement is dispatched as one editor
 transaction and therefore one undo step. CrypTex neither edits `\usepackage` lines
 nor installs packages on the user’s behalf.
+
+## Inline assistance
+
+H5 reuses the same offline catalog and backend-derived package context inside
+CodeMirror. Typing a command prefix offers catalog completions with signatures; native
+CodeMirror snippet fields preserve keyboard placeholder navigation. Hovering a known
+command shows its signature, summary, requirements, and provenance. While the cursor
+is inside a recognized command argument, a compact signature panel is shown.
+
+The lightweight context detector boosts preamble, text, or math results and avoids
+queries in comments, inline `\verb`/`\verb*`, and recognized verbatim
+environments when detection is confident. It does not claim complete TeX parsing;
+uncertain contexts degrade conservatively and never cause an edit.

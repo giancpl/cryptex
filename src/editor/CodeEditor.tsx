@@ -1,8 +1,9 @@
-import { EditorState } from "@codemirror/state";
+import { Compartment, EditorState, StateEffect } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { useEffect, useRef } from "react";
 import { setDiagnosticMarkers, type DiagnosticMarker } from "./editorState";
 import { expandCatalogSnippet } from "./snippets";
+import { catalogAssistance, type CatalogLookup } from "./catalogAssistance";
 
 export function CodeEditor({
   state,
@@ -10,6 +11,7 @@ export function CodeEditor({
   navigation,
   insertion,
   onInsertionApplied,
+  catalogSearch,
 }: {
   state: EditorState;
   diagnostics?: readonly DiagnosticMarker[];
@@ -17,10 +19,13 @@ export function CodeEditor({
     { line: number; column: number | null; request: number } | undefined;
   insertion?: { request: number; snippet: string } | undefined;
   onInsertionApplied?: (request: number) => void;
+  catalogSearch?: CatalogLookup;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const initialState = useRef(state);
+  const assistance = useRef(new Compartment());
+  const assistanceConfigured = useRef(false);
 
   useEffect(() => {
     if (!host.current) return;
@@ -35,6 +40,18 @@ export function CodeEditor({
       editor.destroy();
     };
   }, []);
+
+  useEffect(() => {
+    const editor = view.current;
+    if (!editor) return;
+    const extension = catalogSearch ? catalogAssistance(catalogSearch) : [];
+    editor.dispatch({
+      effects: assistanceConfigured.current
+        ? assistance.current.reconfigure(extension)
+        : StateEffect.appendConfig.of(assistance.current.of(extension)),
+    });
+    assistanceConfigured.current = true;
+  }, [catalogSearch]);
 
   useEffect(() => {
     if (!view.current || !navigation) return;

@@ -1579,6 +1579,7 @@ export function App({
                   : undefined
               }
               onInsertionApplied={acknowledgeCatalogInsertion}
+              catalogSearch={searchCatalog}
             />
           ) : (
             <p>Select a text file to begin editing.</p>

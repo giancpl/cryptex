@@ -105,7 +105,10 @@
 - H4: implemented with a Ctrl/Cmd+K accessible palette, backend-scoped search,
   contextual details and provenance, missing-package warnings, selection-aware snippet
   expansion, and a single undoable CodeMirror insertion transaction.
-- Next: H5 completion, hover, and signatures.
+- H5: implemented with native CodeMirror catalog completion and snippet fields,
+  command hover, debounced signature help, context ranking, requirements/provenance,
+  stale-result suppression, and conservative comment/verbatim exclusion.
+- Next: I1 notation profile and defaults.
 
 The authoritative sequence is:
 

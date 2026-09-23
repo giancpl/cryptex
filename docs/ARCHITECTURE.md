@@ -212,3 +212,13 @@ details, provenance, and missing-package warning. Selecting Insert sends only th
 already-returned inert snippet to the active CodeMirror view. Placeholder expansion
 replaces the current selection and dispatches one document transaction, so the entire
 insertion is one undo step. It never edits a preamble or installs a package.
+
+## Inline catalog assistance
+
+H5 configures CodeMirror through a reconfigurable compartment. Completion queries the
+same backend-scoped H3 search and applies catalog snippets through CodeMirror’s native
+placeholder support. Hover and signature help show the exact signature, summary,
+requirements, and provenance without changing text. A bounded lexical context detector
+selects preamble, text, or math ranking and suppresses assistance in comments, inline
+verb, and recognized verbatim environments when confidently detected. Async failures
+degrade to no assistance and stale signature responses are discarded.
