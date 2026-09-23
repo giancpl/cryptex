@@ -10,7 +10,8 @@ export function CodeEditor({
 }: {
   state: EditorState;
   diagnostics?: readonly DiagnosticMarker[];
-  navigation?: { line: number; request: number } | undefined;
+  navigation?:
+    { line: number; column: number | null; request: number } | undefined;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
@@ -35,9 +36,12 @@ export function CodeEditor({
     const line = view.current.state.doc.line(
       Math.max(1, Math.min(navigation.line, view.current.state.doc.lines)),
     );
+    const anchor =
+      line.from +
+      Math.max(0, Math.min((navigation.column ?? 1) - 1, line.length));
     view.current.dispatch({
-      selection: { anchor: line.from },
-      effects: EditorView.scrollIntoView(line.from, { y: "center" }),
+      selection: { anchor },
+      effects: EditorView.scrollIntoView(anchor, { y: "center" }),
     });
     view.current.focus();
   }, [navigation]);

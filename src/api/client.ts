@@ -10,6 +10,7 @@ import type { BuildState } from "../bindings/BuildState";
 import type { FileTreePage } from "../bindings/FileTreePage";
 import type { ForwardSynctexRequest } from "../bindings/ForwardSynctexRequest";
 import type { HealthResponse } from "../bindings/HealthResponse";
+import type { InverseSynctexRequest } from "../bindings/InverseSynctexRequest";
 import type { LatexEngine } from "../bindings/LatexEngine";
 import type { RecoveryInventory } from "../bindings/RecoveryInventory";
 import type { RecoverySnapshot } from "../bindings/RecoverySnapshot";
@@ -19,6 +20,7 @@ import type { ProjectTrustState } from "../bindings/ProjectTrustState";
 import type { ProjectFileChange } from "../bindings/ProjectFileChange";
 import type { TextDocument } from "../bindings/TextDocument";
 import type { SynctexPosition } from "../bindings/SynctexPosition";
+import type { SynctexSourcePosition } from "../bindings/SynctexSourcePosition";
 import type { ToolchainReadiness } from "../bindings/ToolchainReadiness";
 import type { WriteResult } from "../bindings/WriteResult";
 
@@ -82,6 +84,14 @@ export interface BackendClient {
     line: number,
     column: number,
   ): Promise<SynctexPosition | null>;
+  inverseSynctex(
+    this: void,
+    projectId: string,
+    operationId: string,
+    page: number,
+    x: number,
+    y: number,
+  ): Promise<SynctexSourcePosition | null>;
   projectTrust(this: void, projectId: string): Promise<ProjectTrustState>;
   setProjectPermission(
     this: void,
@@ -164,6 +174,16 @@ export const backendClient: BackendClient = {
       column,
     };
     return invoke<SynctexPosition | null>("forward_synctex", { request });
+  },
+  inverseSynctex: (projectId, operationId, page, x, y) => {
+    const request: InverseSynctexRequest = {
+      projectId,
+      operationId,
+      page,
+      x,
+      y,
+    };
+    return invoke<SynctexSourcePosition | null>("inverse_synctex", { request });
   },
   projectTrust: (projectId) =>
     invoke<ProjectTrustState>("project_trust", { projectId }),

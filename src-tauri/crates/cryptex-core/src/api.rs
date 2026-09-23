@@ -372,6 +372,29 @@ pub struct RecoverySnapshot {
     pub updated_at_ms: u64,
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
+pub struct InverseSynctexRequest {
+    pub project_id: String,
+    pub operation_id: OperationId,
+    pub page: u32,
+    pub x: f64,
+    pub y: f64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../../src/bindings/")]
+pub struct SynctexSourcePosition {
+    pub api_version: u16,
+    pub project_id: String,
+    pub operation_id: OperationId,
+    pub relative_path: String,
+    pub line: u32,
+    pub column: Option<u32>,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "../../../../src/bindings/")]

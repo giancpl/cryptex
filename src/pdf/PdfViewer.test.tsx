@@ -149,6 +149,47 @@ describe("PdfViewer", () => {
     });
   });
 
+  it("converts a PDF click from rendered pixels to SyncTeX coordinates", async () => {
+    const onInverseSearch = vi.fn();
+    const loader: PdfDocumentLoader = vi.fn().mockResolvedValue({
+      numPages: 1,
+      getPage: () =>
+        Promise.resolve({
+          getViewport: ({ scale }: { scale: number }) => ({
+            width: 100 * scale,
+            height: 200 * scale,
+          }),
+          getTextContent: () => Promise.resolve({ items: [] }),
+          render: () => ({ promise: Promise.resolve(), cancel: vi.fn() }),
+        }),
+      destroy: vi.fn().mockResolvedValue(undefined),
+    });
+    render(
+      <PdfViewer
+        projectId="inverse-project"
+        operationId="build-4"
+        data={new Uint8Array([4])}
+        loadDocument={loader}
+        onInverseSearch={onInverseSearch}
+      />,
+    );
+    const canvas = await screen.findByLabelText("PDF page 1");
+    await waitFor(() => expect(canvas).toHaveAttribute("width", "100"));
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      left: 10,
+      top: 20,
+      right: 110,
+      bottom: 220,
+      width: 100,
+      height: 200,
+      x: 10,
+      y: 20,
+      toJSON: () => ({}),
+    });
+    fireEvent.click(canvas, { clientX: 35, clientY: 70 });
+    expect(onInverseSearch).toHaveBeenCalledWith(1, 25, 50);
+  });
+
   it("contains malformed PDF failures without crashing", async () => {
     const loader: PdfDocumentLoader = vi
       .fn()

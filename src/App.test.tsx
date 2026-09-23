@@ -15,13 +15,20 @@ vi.mock("./pdf/PdfViewer", () => ({
   PdfViewer: ({
     operationId,
     forwardTarget,
+    onInverseSearch,
   }: {
     operationId: string;
     forwardTarget?: { page: number };
+    onInverseSearch?: (page: number, x: number, y: number) => void;
   }) => (
     <div data-testid="pdf-preview">
       {operationId}
       {forwardTarget ? " · page " + forwardTarget.page : ""}
+      {onInverseSearch ? (
+        <button type="button" onClick={() => onInverseSearch(2, 30, 40)}>
+          Open PDF position
+        </button>
+      ) : null}
     </div>
   ),
 }));
@@ -506,6 +513,64 @@ describe("App", () => {
     ).toBeVisible();
   });
 
+  it("maps a retained PDF position back to a validated source file", async () => {
+    const projectId = "7".repeat(64);
+    const operationId = "build-00000000000000000010";
+    const readTextFile = vi
+      .fn()
+      .mockImplementation((_projectId: string, path: string) =>
+        Promise.resolve({
+          apiVersion: 1,
+          relativePath: path,
+          text: "first line\nsecond line",
+          fingerprint: "6".repeat(64),
+          sizeBytes: 22,
+        }),
+      );
+    const client = conflictClient(projectId, readTextFile, () => undefined);
+    let emitBuild: ((state: BuildState) => void) | undefined;
+    client.onBuildState = vi
+      .fn()
+      .mockImplementation((listener: (state: BuildState) => void) => {
+        emitBuild = listener;
+        return Promise.resolve(() => undefined);
+      });
+    client.readBuildPdf = vi.fn().mockResolvedValue(new Uint8Array([1]));
+    client.inverseSynctex = vi.fn().mockResolvedValue({
+      apiVersion: 1,
+      projectId,
+      operationId,
+      relativePath: "sections/proof.tex",
+      line: 2,
+      column: 3,
+    });
+
+    render(
+      <App client={client} pickDirectory={() => Promise.resolve("/paper")} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open folder" }));
+    await screen.findByRole("button", { name: /main\.tex/ });
+    act(() => {
+      emitBuild?.(pdfBuildState(projectId, operationId, "succeeded", true));
+    });
+    await screen.findByTestId("pdf-preview");
+    fireEvent.click(screen.getByRole("button", { name: "Open PDF position" }));
+
+    await waitFor(() =>
+      expect(client.inverseSynctex).toHaveBeenCalledWith(
+        projectId,
+        operationId,
+        2,
+        30,
+        40,
+      ),
+    );
+    expect(
+      await screen.findByRole("tab", { name: "proof.tex" }),
+    ).toHaveAttribute("aria-selected", "true");
+    expect(readTextFile).toHaveBeenCalledWith(projectId, "sections/proof.tex");
+  });
+
   it("presents, filters, navigates, and exposes raw build diagnostics", async () => {
     const projectId = "8".repeat(64);
     const readTextFile = vi.fn().mockResolvedValue({
@@ -726,6 +791,7 @@ function buildMocks() {
     readBuildLog: vi.fn().mockRejectedValue(new Error("not used")),
     readBuildPdf: vi.fn().mockRejectedValue(new Error("not used")),
     forwardSynctex: vi.fn().mockResolvedValue(null),
+    inverseSynctex: vi.fn().mockResolvedValue(null),
     onBuildState: vi.fn().mockResolvedValue(() => undefined),
     onBuildOutput: vi.fn().mockResolvedValue(() => undefined),
   };

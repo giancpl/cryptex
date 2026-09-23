@@ -86,6 +86,7 @@ export function App({
   const [editorNavigation, setEditorNavigation] = useState<{
     path: string;
     line: number;
+    column: number | null;
     request: number;
   } | null>(null);
   const documentsRef = useRef(documents);
@@ -821,18 +822,59 @@ export function App({
     }
   }
 
+  async function inverseSearch(page: number, x: number, y: number) {
+    if (!project || !pdfPreview) return;
+    const operationId = pdfPreview.operationId;
+    const request = ++synctexRequestRef.current;
+    setSynctexMessage("Locating PDF position in source…");
+    try {
+      const source = await client.inverseSynctex(
+        project.projectId,
+        operationId,
+        page,
+        x,
+        y,
+      );
+      if (synctexRequestRef.current !== request) return;
+      if (!source) {
+        setSynctexMessage(
+          "No SyncTeX source position was found for this PDF point.",
+        );
+        return;
+      }
+      await navigateToSource(source.relativePath, source.line, source.column);
+      if (synctexRequestRef.current === request) setSynctexMessage(null);
+    } catch (reason) {
+      if (synctexRequestRef.current === request)
+        setSynctexMessage(errorMessage(reason));
+    }
+  }
+
   async function navigateToDiagnostic(diagnostic: Diagnostic) {
-    if (!project || !diagnostic.source) return;
-    const path = diagnostic.source.relativePath;
-    const line = diagnostic.source.startLine;
-    const current = documentsRef.current[path];
-    if (current) {
+    if (!diagnostic.source) return;
+    await navigateToSource(
+      diagnostic.source.relativePath,
+      diagnostic.source.startLine,
+    );
+  }
+
+  async function navigateToSource(
+    path: string,
+    line: number,
+    column: number | null = null,
+  ) {
+    if (!project) return;
+    const navigate = () => {
       setActivePath(path);
       setEditorNavigation((navigation) => ({
         path,
         line,
+        column,
         request: (navigation?.request ?? 0) + 1,
       }));
+    };
+    if (documentsRef.current[path]) {
+      navigate();
       return;
     }
     try {
@@ -852,12 +894,7 @@ export function App({
           conflict: undefined,
         },
       }));
-      setActivePath(path);
-      setEditorNavigation((navigation) => ({
-        path,
-        line,
-        request: (navigation?.request ?? 0) + 1,
-      }));
+      navigate();
     } catch (reason) {
       setError(errorMessage(reason));
     }
@@ -1477,6 +1514,7 @@ export function App({
               operationId={pdfPreview.operationId}
               data={pdfPreview.data}
               forwardTarget={synctexTarget ?? undefined}
+              onInverseSearch={(page, x, y) => void inverseSearch(page, x, y)}
             />
           ) : (
             <p>A successful build will appear here.</p>

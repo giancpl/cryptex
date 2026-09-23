@@ -78,7 +78,10 @@
   execution through the restricted supervisor, validated source paths, bounded tolerant
   result parsing, typed page coordinates, explicit unavailable states, and viewer page
   navigation plus highlighting that preserves zoom.
-- Next: F6 inverse SyncTeX search.
+- F6: implemented with PDF-coordinate inverse queries, bounded output parsing,
+  canonical project-contained source validation, stale-result suppression, and editor
+  line/column navigation.
+- Next: G1 project-index schema and scanner limits.
 
 The authoritative sequence is:
 
@@ -93,6 +96,6 @@ The authoritative sequence is:
 9. B3 fingerprinted reads and atomic writes.
 10. C1 CodeMirror and document tabs.
 
-Continue with F6, G1-G4, H1-H5, I1-I5, and J1-J6 in
+Continue with G1-G4, H1-H5, I1-I5, and J1-J6 in
 dependency order. M8-M10 remain blocked until J6. Each task is an independently
 reviewable change with tests and the global acceptance rules.

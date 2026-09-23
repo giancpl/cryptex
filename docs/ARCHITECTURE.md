@@ -131,3 +131,11 @@ The tolerant parser returns the first finite page-space `h`, `v`, `W`, and `H` r
 as a normalized DTO. React suppresses stale requests; PDF.js changes page, preserves
 zoom, scrolls toward the result, and renders a temporary noninteractive marker. Missing
 data or unmatched lines degrade to a visible unavailable state.
+
+## Inverse SyncTeX
+
+F6 converts preview clicks to PDF coordinates and invokes `synctex edit` for the
+currently retained build. Rust bounds and parses the result, canonicalizes the reported
+source immediately before use, and requires a regular file contained by the canonical
+project root. Only then does React receive a project-relative path and line/column; stale
+responses are discarded before navigation.

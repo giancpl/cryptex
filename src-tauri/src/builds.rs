@@ -2,7 +2,8 @@ use crate::api::{EnginePreferenceState, RootPreferenceState, TrustState};
 use cryptex_core::{
     api::{
         API_VERSION, ApiError, BuildLog, BuildOutput, BuildOutputStream, BuildPhase, BuildReason,
-        BuildState, Diagnostic, ForwardSynctexRequest, OperationId, SynctexPosition,
+        BuildState, Diagnostic, ForwardSynctexRequest, InverseSynctexRequest, OperationId,
+        SynctexPosition, SynctexSourcePosition,
     },
     build::resolve_build_configuration,
     compiler::{BuildRequestError, LATEXMK_EXECUTABLE, LatexmkRequest, LatexmkRequestBuilder},
@@ -13,7 +14,7 @@ use cryptex_core::{
         BuildScheduler, CancelDisposition, CompletionDisposition, ScheduleDisposition,
         ScheduledBuild,
     },
-    synctex::parse_forward_output,
+    synctex::{parse_forward_output, parse_inverse_output, resolve_inverse_source},
     toolchain::ToolchainService,
 };
 use std::{
@@ -412,18 +413,12 @@ pub async fn forward_synctex(
             )
             .map_err(|error| api_error("SYNCTEX_EXECUTION_ERROR", error.to_string(), true))?;
         if result.outcome != ProcessOutcome::Succeeded {
-            let message = String::from_utf8_lossy(&result.stderr)
-                .trim()
-                .chars()
-                .take(1_024)
-                .collect::<String>();
             return Err(api_error(
                 "SYNCTEX_UNAVAILABLE",
-                if message.is_empty() {
-                    "SyncTeX could not map this source position".to_owned()
-                } else {
-                    message
-                },
+                bounded_process_message(
+                    &result.stderr,
+                    "SyncTeX could not map this source position",
+                ),
                 false,
             ));
         }
@@ -432,6 +427,150 @@ pub async fn forward_synctex(
     })
     .await
     .map_err(|error| internal(&format!("SyncTeX worker failed: {error}")))?
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn inverse_synctex(
+    request: InverseSynctexRequest,
+    runtime: State<'_, BuildRuntime>,
+    projects: State<'_, Mutex<ProjectService>>,
+    toolchain: State<'_, ToolchainService>,
+) -> Result<Option<SynctexSourcePosition>, ApiError> {
+    let InverseSynctexRequest {
+        project_id,
+        operation_id,
+        page,
+        x,
+        y,
+    } = request;
+    if page == 0
+        || page > 1_000_000
+        || !x.is_finite()
+        || !y.is_finite()
+        || !(0.0..=1_000_000.0).contains(&x)
+        || !(0.0..=1_000_000.0).contains(&y)
+    {
+        return Err(api_error(
+            "SYNCTEX_INVALID_POSITION",
+            "the PDF page or coordinates are outside the supported range".to_owned(),
+            false,
+        ));
+    }
+    let project_root = projects
+        .lock()
+        .map_err(|_| internal("project service lock is poisoned"))?
+        .project_root(&project_id)
+        .map_err(|error| api_error("SYNCTEX_SOURCE_ERROR", error.to_string(), false))?;
+    let (pdf, synctex) = {
+        let state = runtime
+            .state
+            .lock()
+            .map_err(|_| internal("build runtime lock is poisoned"))?;
+        let artifact = state.pdfs.get(&project_id).ok_or_else(|| {
+            api_error(
+                "SYNCTEX_UNAVAILABLE",
+                "compile the project successfully before using SyncTeX".to_owned(),
+                false,
+            )
+        })?;
+        if artifact.operation_id != operation_id {
+            return Err(api_error(
+                "SYNCTEX_STALE_PDF",
+                "the clicked PDF is no longer the retained successful build".to_owned(),
+                true,
+            ));
+        }
+        let synctex = artifact.synctex.clone().ok_or_else(|| {
+            api_error(
+                "SYNCTEX_UNAVAILABLE",
+                "the successful build did not produce SyncTeX data".to_owned(),
+                false,
+            )
+        })?;
+        (artifact.path.clone(), synctex)
+    };
+    runtime
+        .request_builder
+        .validate_artifact_file(&pdf)
+        .and_then(|_| runtime.request_builder.validate_artifact_file(&synctex))
+        .map_err(|error| api_error("SYNCTEX_UNAVAILABLE", error.to_string(), false))?;
+    if pdf.to_string_lossy().contains(':') {
+        return Err(api_error(
+            "SYNCTEX_UNSUPPORTED_PATH",
+            "SyncTeX inverse search does not support a colon in the PDF path".to_owned(),
+            false,
+        ));
+    }
+    let executable = toolchain
+        .verified_executable(SYNCTEX_EXECUTABLE)
+        .map_err(|message| api_error("TOOLCHAIN_NOT_READY", message, true))?;
+    let output = format!("{page}:{x:.6}:{y:.6}:{}", pdf.to_string_lossy());
+    let requested_operation = operation_id;
+    tauri::async_runtime::spawn_blocking(move || {
+        let supervisor = ProcessSupervisor::new(
+            BTreeMap::from([(SYNCTEX_EXECUTABLE.to_owned(), executable)]),
+            vec![project_root.clone()],
+            ProcessLimits {
+                timeout: std::time::Duration::from_secs(10),
+                max_log_bytes: 256 * 1024,
+                cpu_seconds: 5,
+                ..ProcessLimits::default()
+            },
+        )
+        .map_err(|error| api_error("SYNCTEX_EXECUTION_ERROR", error.to_string(), true))?;
+        let result = supervisor
+            .run(
+                SYNCTEX_EXECUTABLE,
+                &["edit".into(), "-o".into(), output.into()],
+                &project_root,
+                &CancellationToken::default(),
+                |_| {},
+            )
+            .map_err(|error| api_error("SYNCTEX_EXECUTION_ERROR", error.to_string(), true))?;
+        if result.outcome != ProcessOutcome::Succeeded {
+            return Err(api_error(
+                "SYNCTEX_UNAVAILABLE",
+                bounded_process_message(&result.stderr, "SyncTeX could not map this PDF position"),
+                false,
+            ));
+        }
+        let Some(position) = parse_inverse_output(&result.stdout)
+            .map_err(|error| api_error("SYNCTEX_OUTPUT_ERROR", error.to_string(), false))?
+        else {
+            return Ok(None);
+        };
+        let (_, relative) =
+            resolve_inverse_source(&project_root, &position.input).map_err(|_| {
+                api_error(
+                    "SYNCTEX_UNSAFE_SOURCE",
+                    "SyncTeX returned a source file outside the open project".to_owned(),
+                    false,
+                )
+            })?;
+        Ok(Some(SynctexSourcePosition {
+            api_version: API_VERSION,
+            project_id,
+            operation_id: requested_operation,
+            relative_path: relative,
+            line: position.line,
+            column: position.column,
+        }))
+    })
+    .await
+    .map_err(|error| internal(&format!("SyncTeX worker failed: {error}")))?
+}
+
+fn bounded_process_message(stderr: &[u8], fallback: &str) -> String {
+    let message = String::from_utf8_lossy(stderr)
+        .trim()
+        .chars()
+        .take(1_024)
+        .collect::<String>();
+    if message.is_empty() {
+        fallback.to_owned()
+    } else {
+        message
+    }
 }
 
 fn spawn_build(app: AppHandle, build: ScheduledBuild<ExecutableBuild>) {

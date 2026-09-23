@@ -38,6 +38,7 @@ interface PdfViewerProps {
   operationId: string;
   data: Uint8Array;
   forwardTarget?: (SynctexPosition & { requestId: number }) | undefined;
+  onInverseSearch?: (page: number, x: number, y: number) => void;
   loadDocument?: PdfDocumentLoader;
 }
 
@@ -46,6 +47,7 @@ export function PdfViewer({
   operationId,
   data,
   forwardTarget,
+  onInverseSearch,
   loadDocument = loadPdfDocument,
 }: PdfViewerProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -267,7 +269,24 @@ export function PdfViewer({
       {!document && !message ? <p>Loading PDF…</p> : null}
       <div className="pdf-canvas-container">
         <div className="pdf-page-surface">
-          <canvas ref={canvas} aria-label={"PDF page " + page} />
+          <canvas
+            ref={canvas}
+            aria-label={"PDF page " + page}
+            className={onInverseSearch ? "synctex-clickable" : undefined}
+            title={
+              onInverseSearch
+                ? "Click to open this position in the LaTeX source"
+                : undefined
+            }
+            onClick={(event) => {
+              if (!onInverseSearch || renderScale <= 0) return;
+              const bounds = event.currentTarget.getBoundingClientRect();
+              const x = (event.clientX - bounds.left) / renderScale;
+              const y = (event.clientY - bounds.top) / renderScale;
+              if (Number.isFinite(x) && Number.isFinite(y) && x >= 0 && y >= 0)
+                onInverseSearch(page, x, y);
+            }}
+          />
           {forwardTarget &&
           forwardTarget.operationId === operationId &&
           forwardTarget.page === page ? (

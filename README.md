@@ -45,5 +45,5 @@ execution, explicit build permissions, deterministic root/engine resolution, and
 logs, visible build state, cancellation, cache-confined cleanup, and conservative
 structured log diagnostics, a filterable Problems panel, inline source markers, and
 raw-log review, a secure local PDF.js preview with navigation, zoom, and search,
-race-safe retention of the last successful PDF, and source-to-PDF forward SyncTeX
-navigation. Inverse SyncTeX search (F6) is next. No production release exists.
+race-safe retention of the last successful PDF, and bidirectional SyncTeX navigation
+between source and preview. Project intelligence (G1) is next. No production release exists.

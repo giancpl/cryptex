@@ -6,7 +6,7 @@
 - Frontend tests cover editor state, panels, Finder, notation, and accessibility.
 - Contract tests cover serialized DTOs and generated TypeScript bindings.
 - Real LaTeX fixtures cover engines, bibliography tools, `cryptocode`, TikZ,
-  failures, risky configuration, Unicode, portability, and forward SyncTeX queries
+  failures, risky configuration, Unicode, portability, and bidirectional SyncTeX queries
   for pdfLaTeX, `cryptocode`, and LuaLaTeX outputs.
 - End-to-end tests exercise open, edit, save, build, preview, diagnostics, and navigation.
 

@@ -48,10 +48,18 @@ check_forward_synctex() {
   grep -q '^Page:[1-9][0-9]*' synctex-forward.txt
   grep -q '^h:' synctex-forward.txt
   grep -q '^v:' synctex-forward.txt
+
+  page=$(sed -n 's/^Page://p' synctex-forward.txt | sed -n '1p')
+  horizontal=$(sed -n 's/^h://p' synctex-forward.txt | sed -n '1p')
+  vertical=$(sed -n 's/^v://p' synctex-forward.txt | sed -n '1p')
+  synctex edit -o "$page:$horizontal:$vertical:$work_dir/$output_pdf" > synctex-inverse.txt
+  grep -q '^SyncTeX result begin' synctex-inverse.txt
+  grep -q '^Input:' synctex-inverse.txt
+  grep -q '^Line:[1-9][0-9]*' synctex-inverse.txt
 }
 
 check_forward_synctex minimal.tex 3 minimal.pdf
 check_forward_synctex cryptocode.tex 4 cryptocode.pdf
 check_forward_synctex unicode-engines.tex 4 unicode-engines.pdf
 
-echo "TeX Live spike fixtures and forward SyncTeX queries passed"
+echo "TeX Live spike fixtures and bidirectional SyncTeX queries passed"

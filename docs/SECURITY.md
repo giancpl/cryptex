@@ -34,7 +34,8 @@ operation snapshots; stale IPC responses are rejected by a monotonic frontend to
 and replacement/removal is serialized with bounded reads. F5 accepts only a validated
 in-project source path and the currently retained operation, executes only the verified
 managed `synctex` binary through the restricted supervisor, bounds time/output, and
-rejects non-finite or malformed coordinates before they reach the viewer.
+rejects non-finite or malformed coordinates before they reach the viewer. F6 also canonicalizes inverse results immediately before use and rejects any source
+that is not a regular file contained by the project root, including escaping symlinks.
 
 Restricted TeX is not a proven sandbox. OS sandboxing is a release investigation,
 not a reason to weaken the controls above.
