@@ -44,3 +44,12 @@ G2 implements a linear lexical pass over UTF-8 source. Comments, inline `\verb`,
 arguments are inspected without expanding or executing macros. Unsupported and
 ambiguous constructs are omitted; malformed constructs produce partial status and
 structured issues while later top-level commands remain discoverable where possible.
+
+## Project graph and updates
+
+G3 indexes `.tex` and `.sty` files in stable path order and resolves lexical include
+targets relative to their source file, adding `.tex` only when no extension is present.
+It records forward and reverse edges, reports missing targets and cycles, and consumes
+the normalized C3 watcher DTO. Modify/create events scan only existing changed sources;
+rename/remove events evict vanished paths. A rescan uses a cancellable unpublished
+snapshot and increments the generation only when the result is committed.

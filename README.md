@@ -47,5 +47,5 @@ structured log diagnostics, a filterable Problems panel, inline source markers, 
 raw-log review, a secure local PDF.js preview with navigation, zoom, and search,
 race-safe retention of the last successful PDF, and bidirectional SyncTeX navigation
 between source and preview. The bounded best-effort project-index contract is frozen;
-bounded tolerant per-file extraction is implemented; incremental project indexing (G3)
-is next. No production release exists.
+bounded tolerant extraction and incremental include/dependency indexing are implemented;
+project navigation consumers (G4) are next. No production release exists.

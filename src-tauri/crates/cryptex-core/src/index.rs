@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use ts_rs::TS;
 
+pub mod project;
 pub mod scanner;
 
 pub const PROJECT_INDEX_SCHEMA_VERSION: u16 = 1;

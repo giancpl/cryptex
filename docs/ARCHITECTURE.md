@@ -159,3 +159,14 @@ definitions, includes, packages, and the real `cryptocode` `\pseudocode` constru
 Malformed input yields partial records plus structured issues. File size, record count,
 brace depth, and command length are bounded by the G1 contract; invalid paths and
 fingerprints are rejected before scanning.
+
+## Incremental project graph
+
+G3 maintains a per-project cache of scanned `.tex` and `.sty` files. Initial rescans
+are deterministic and bounded by file-count and total-byte limits; canonical directory
+tracking prevents symlink traversal loops and files resolving outside the root are
+skipped. Typed watcher changes rescan only changed existing sources or remove deleted
+paths, then rebuild include and reverse-dependency edges from cached records. Missing
+includes and include cycles become nonfatal index issues. Full rescans use cancellation
+tokens and publish atomically only after completion, so stale work cannot replace the
+current generation.
