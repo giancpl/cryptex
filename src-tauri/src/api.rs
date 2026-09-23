@@ -13,6 +13,10 @@ use cryptex_core::{
         ProjectNotationOverrides, ProjectNotationSuppressions,
     },
     notation_diagnostics::{ProjectNotationDiagnostics, analyze_notation_consistency},
+    notation_refactor::{
+        ApplyNotationRenameRequest, ApplyNotationRenameResult, NotationRenameFileResult,
+        NotationRenameFileStatus, NotationRenamePreview, preview_notation_rename,
+    },
     notation_usage::{ProjectNotationUsage, scan_project_notation_usage},
     project::{ProjectError, ProjectService},
     recovery::{RecoveryError, RecoveryService},
@@ -239,6 +243,169 @@ pub fn notation_diagnostics(
         &profile,
         &suppressions.items,
     ))
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn preview_notation_rename_command(
+    project_id: String,
+    concept_id: String,
+    projects: State<'_, Mutex<ProjectService>>,
+    indexes: State<'_, ProjectIndexes>,
+    notation: State<'_, NotationState>,
+) -> Result<NotationRenamePreview, ApiError> {
+    let index = indexes
+        .lock()
+        .map_err(|_| internal_error("project index lock is poisoned"))?
+        .get(&project_id)
+        .map(ProjectIndexer::snapshot)
+        .ok_or_else(|| ApiError {
+            api_version: API_VERSION,
+            code: "PROJECT_INDEX_UNAVAILABLE".into(),
+            message: "the project index is not available".into(),
+            retryable: true,
+        })?;
+    let profile = notation
+        .lock()
+        .map_err(|_| internal_error("notation service lock is poisoned"))?
+        .effective(Some(&project_id))
+        .map_err(notation_error)?;
+    let projects = projects
+        .lock()
+        .map_err(|_| internal_error("project service lock is poisoned"))?;
+    projects.require_open(&project_id).map_err(project_error)?;
+    let usage = scan_project_notation_usage(&index, &profile, |path| {
+        projects
+            .read_text_file(&project_id, path)
+            .ok()
+            .map(|document| (document.text, document.fingerprint))
+    });
+    preview_notation_rename(&usage, &profile, &concept_id, |path| {
+        projects
+            .read_text_file(&project_id, path)
+            .ok()
+            .map(|document| (document.text, document.fingerprint))
+    })
+    .map_err(|message| ApiError {
+        api_version: API_VERSION,
+        code: "NOTATION_REFACTOR_INVALID".into(),
+        message,
+        retryable: false,
+    })
+}
+
+#[tauri::command]
+pub fn apply_notation_rename(
+    request: ApplyNotationRenameRequest,
+    projects: State<'_, Mutex<ProjectService>>,
+    indexes: State<'_, ProjectIndexes>,
+    notation: State<'_, NotationState>,
+) -> Result<ApplyNotationRenameResult, ApiError> {
+    let index = indexes
+        .lock()
+        .map_err(|_| internal_error("project index lock is poisoned"))?
+        .get(&request.project_id)
+        .map(ProjectIndexer::snapshot)
+        .ok_or_else(|| ApiError {
+            api_version: API_VERSION,
+            code: "PROJECT_INDEX_UNAVAILABLE".into(),
+            message: "the project index is not available".into(),
+            retryable: true,
+        })?;
+    let profile = notation
+        .lock()
+        .map_err(|_| internal_error("notation service lock is poisoned"))?
+        .effective(Some(&request.project_id))
+        .map_err(notation_error)?;
+    let projects = projects
+        .lock()
+        .map_err(|_| internal_error("project service lock is poisoned"))?;
+    projects
+        .require_open(&request.project_id)
+        .map_err(project_error)?;
+    let usage = scan_project_notation_usage(&index, &profile, |path| {
+        projects
+            .read_text_file(&request.project_id, path)
+            .ok()
+            .map(|document| (document.text, document.fingerprint))
+    });
+    let preview = preview_notation_rename(&usage, &profile, &request.concept_id, |path| {
+        projects
+            .read_text_file(&request.project_id, path)
+            .ok()
+            .map(|document| (document.text, document.fingerprint))
+    })
+    .map_err(|message| ApiError {
+        api_version: API_VERSION,
+        code: "NOTATION_REFACTOR_INVALID".into(),
+        message,
+        retryable: false,
+    })?;
+    let mut seen = std::collections::HashSet::new();
+    let mut results = Vec::with_capacity(request.files.len());
+    for selected in request.files {
+        let Some(file) = preview
+            .files
+            .iter()
+            .find(|file| file.relative_path == selected.relative_path)
+        else {
+            results.push(NotationRenameFileResult {
+                relative_path: selected.relative_path,
+                status: NotationRenameFileStatus::Changed,
+                message: Some("file changed since the preview; no edits were applied".into()),
+                fingerprint: None,
+            });
+            continue;
+        };
+        if !seen.insert(selected.relative_path.clone()) {
+            results.push(NotationRenameFileResult {
+                relative_path: selected.relative_path,
+                status: NotationRenameFileStatus::Failed,
+                message: Some("duplicate file selection".into()),
+                fingerprint: None,
+            });
+            continue;
+        }
+        if file.fingerprint != selected.expected_fingerprint {
+            results.push(NotationRenameFileResult {
+                relative_path: selected.relative_path,
+                status: NotationRenameFileStatus::Changed,
+                message: Some("fingerprint no longer matches the reviewed preview".into()),
+                fingerprint: Some(file.fingerprint.clone()),
+            });
+            continue;
+        }
+        match projects.write_text_file(
+            &request.project_id,
+            &file.relative_path,
+            &file.revised_text,
+            &selected.expected_fingerprint,
+        ) {
+            Ok(written) => results.push(NotationRenameFileResult {
+                relative_path: file.relative_path.clone(),
+                status: NotationRenameFileStatus::Applied,
+                message: None,
+                fingerprint: Some(written.fingerprint),
+            }),
+            Err(ProjectError::StaleFingerprint) => results.push(NotationRenameFileResult {
+                relative_path: file.relative_path.clone(),
+                status: NotationRenameFileStatus::Changed,
+                message: Some("file changed while applying; it was not overwritten".into()),
+                fingerprint: None,
+            }),
+            Err(error) => results.push(NotationRenameFileResult {
+                relative_path: file.relative_path.clone(),
+                status: NotationRenameFileStatus::Failed,
+                message: Some(error.to_string()),
+                fingerprint: None,
+            }),
+        }
+    }
+    Ok(ApplyNotationRenameResult {
+        api_version: API_VERSION,
+        project_id: request.project_id,
+        concept_id: request.concept_id,
+        files: results,
+    })
 }
 
 #[tauri::command(rename_all = "camelCase")]

@@ -119,7 +119,8 @@
 - I4: implemented with deterministic informational/warning findings, exact evidence,
   source navigation, incomplete-result disclosure, and validated project/file
   suppressions stored outside source trees.
-- Next: I5 reviewed notation rename preview.
+- I5: implemented with exact indexed edit enumeration, per-file before/after review, explicit file selection, apply-time fingerprint revalidation, atomic per-file writes, and recoverable changed/failed results.
+- Next: J1 fixture and acceptance harness.
 
 The authoritative sequence is:
 
@@ -134,6 +135,6 @@ The authoritative sequence is:
 9. B3 fingerprinted reads and atomic writes.
 10. C1 CodeMirror and document tabs.
 
-Continue with H2-H5, I1-I5, and J1-J6 in
+Continue with J1-J6 in
 dependency order. M8-M10 remain blocked until J6. Each task is an independently
 reviewable change with tests and the global acceptance rules.

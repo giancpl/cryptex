@@ -1068,6 +1068,8 @@ function buildMocks() {
       incomplete: false,
     }),
     notationSuppressions: vi.fn().mockResolvedValue({ version: 1, items: [] }),
+    previewNotationRename: vi.fn(),
+    applyNotationRename: vi.fn(),
     setNotationSuppressions: vi
       .fn()
       .mockResolvedValue({ version: 1, items: [] }),

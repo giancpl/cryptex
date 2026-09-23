@@ -20,6 +20,9 @@ import type { ProjectNotationDiagnostics } from "../bindings/ProjectNotationDiag
 import type { ProjectNotationOverrides } from "../bindings/ProjectNotationOverrides";
 import type { ProjectNotationSuppressions } from "../bindings/ProjectNotationSuppressions";
 import type { ProjectNotationUsage } from "../bindings/ProjectNotationUsage";
+import type { ApplyNotationRenameRequest } from "../bindings/ApplyNotationRenameRequest";
+import type { ApplyNotationRenameResult } from "../bindings/ApplyNotationRenameResult";
+import type { NotationRenamePreview } from "../bindings/NotationRenamePreview";
 import type { RecoveryInventory } from "../bindings/RecoveryInventory";
 import type { RecoverySnapshot } from "../bindings/RecoverySnapshot";
 import type { RootDocumentCandidates } from "../bindings/RootDocumentCandidates";
@@ -58,6 +61,15 @@ export interface BackendClient {
     this: void,
     projectId: string,
   ): Promise<ProjectNotationSuppressions>;
+  previewNotationRename(
+    this: void,
+    projectId: string,
+    conceptId: string,
+  ): Promise<NotationRenamePreview>;
+  applyNotationRename(
+    this: void,
+    request: ApplyNotationRenameRequest,
+  ): Promise<ApplyNotationRenameResult>;
   setNotationSuppressions(
     this: void,
     projectId: string,
@@ -190,6 +202,13 @@ export const backendClient: BackendClient = {
     invoke<ProjectNotationDiagnostics>("notation_diagnostics", { projectId }),
   notationSuppressions: (projectId) =>
     invoke<ProjectNotationSuppressions>("notation_suppressions", { projectId }),
+  previewNotationRename: (projectId, conceptId) =>
+    invoke<NotationRenamePreview>("preview_notation_rename_command", {
+      projectId,
+      conceptId,
+    }),
+  applyNotationRename: (request) =>
+    invoke<ApplyNotationRenameResult>("apply_notation_rename", { request }),
   setNotationSuppressions: (projectId, suppressions) =>
     invoke<ProjectNotationSuppressions>("set_notation_suppressions", {
       projectId,

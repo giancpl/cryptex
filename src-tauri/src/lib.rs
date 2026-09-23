@@ -53,6 +53,8 @@ pub fn run() {
             api::notation_profile,
             api::notation_usage,
             api::notation_diagnostics,
+            api::preview_notation_rename_command,
+            api::apply_notation_rename,
             api::notation_suppressions,
             api::set_notation_suppressions,
             api::set_global_notation_profile,

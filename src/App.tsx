@@ -10,6 +10,9 @@ import type { EffectiveNotationConcept } from "./bindings/EffectiveNotationConce
 import type { NotationDiagnostic } from "./bindings/NotationDiagnostic";
 import type { ProjectNotationDiagnostics } from "./bindings/ProjectNotationDiagnostics";
 import type { ProjectNotationSuppressions } from "./bindings/ProjectNotationSuppressions";
+import type { ApplyNotationRenameResult } from "./bindings/ApplyNotationRenameResult";
+import type { NotationRenameFileSelection } from "./bindings/NotationRenameFileSelection";
+import type { NotationRenamePreview } from "./bindings/NotationRenamePreview";
 import type { FileTreeEntry } from "./bindings/FileTreeEntry";
 import type { FileTreePage } from "./bindings/FileTreePage";
 import type { RecoveryInventory } from "./bindings/RecoveryInventory";
@@ -30,6 +33,7 @@ import { PdfViewer } from "./pdf/PdfViewer";
 import { createLatexEditorState } from "./editor/editorState";
 import { CommandFinder } from "./finder/CommandFinder";
 import { NotationPalette } from "./notation/NotationPalette";
+import { NotationRenameReview } from "./notation/NotationRenameReview";
 
 interface OpenDocument {
   path: string;
@@ -64,6 +68,11 @@ export function App({
     useState<ProjectNotationDiagnostics | null>(null);
   const [notationSuppressions, setNotationSuppressions] =
     useState<ProjectNotationSuppressions | null>(null);
+  const [renamePreview, setRenamePreview] =
+    useState<NotationRenamePreview | null>(null);
+  const [renameResult, setRenameResult] =
+    useState<ApplyNotationRenameResult | null>(null);
+  const [renameApplying, setRenameApplying] = useState(false);
   const [directories, setDirectories] = useState<Record<string, FileTreePage>>(
     {},
   );
@@ -953,6 +962,36 @@ export function App({
     }
   }
 
+  async function reviewNotationRename(conceptId: string) {
+    if (!project) return;
+    setRenameResult(null);
+    try {
+      setRenamePreview(
+        await client.previewNotationRename(project.projectId, conceptId),
+      );
+    } catch (reason) {
+      setError(errorMessage(reason));
+    }
+  }
+
+  async function applyNotationRename(files: NotationRenameFileSelection[]) {
+    if (!project || !renamePreview) return;
+    setRenameApplying(true);
+    try {
+      setRenameResult(
+        await client.applyNotationRename({
+          projectId: project.projectId,
+          conceptId: renamePreview.conceptId,
+          files,
+        }),
+      );
+    } catch (reason) {
+      setError(errorMessage(reason));
+    } finally {
+      setRenameApplying(false);
+    }
+  }
+
   async function suppressNotationDiagnostic(diagnostic: NotationDiagnostic) {
     if (!project || !notationSuppressions) return;
     const alreadySuppressed = notationSuppressions.items.some(
@@ -1461,6 +1500,15 @@ export function App({
                           </button>
                           <button
                             type="button"
+                            className="review-notation"
+                            onClick={() =>
+                              void reviewNotationRename(diagnostic.conceptId)
+                            }
+                          >
+                            Review replacements
+                          </button>
+                          <button
+                            type="button"
                             className="suppress-notation"
                             onClick={() =>
                               void suppressNotationDiagnostic(diagnostic)
@@ -1773,6 +1821,19 @@ export function App({
           load={loadNotationProfile}
           onClose={() => setNotationOpen(false)}
           onInsert={insertNotation}
+        />
+      ) : null}
+      {renamePreview ? (
+        <NotationRenameReview
+          key={renamePreview.conceptId + ":" + renamePreview.indexGeneration}
+          preview={renamePreview}
+          result={renameResult}
+          applying={renameApplying}
+          onApply={(files) => void applyNotationRename(files)}
+          onClose={() => {
+            setRenamePreview(null);
+            setRenameResult(null);
+          }}
         />
       ) : null}
     </main>

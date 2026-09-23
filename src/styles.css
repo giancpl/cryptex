@@ -821,3 +821,70 @@ input {
 .cm-signature-help[hidden] {
   display: none;
 }
+
+.rename-backdrop {
+  align-items: center;
+  background: #050708cc;
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 30;
+}
+.rename-review {
+  background: #11171c;
+  border: 1px solid #40515d;
+  border-radius: 6px;
+  box-shadow: 0 14px 48px #000b;
+  display: grid;
+  gap: 12px;
+  max-height: calc(100vh - 48px);
+  max-width: 1100px;
+  overflow: hidden;
+  padding: 16px;
+  width: 90vw;
+}
+.rename-review > header,
+.rename-review > footer {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+.rename-review h2,
+.rename-review h3,
+.rename-review p {
+  margin: 0;
+}
+.rename-files {
+  display: grid;
+  gap: 12px;
+  overflow: auto;
+}
+.rename-files article {
+  border: 1px solid #2b343e;
+  padding: 10px;
+}
+.rename-diff {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 8px;
+}
+.rename-diff pre {
+  background: #090c0f;
+  max-height: 28vh;
+  overflow: auto;
+  padding: 8px;
+  white-space: pre-wrap;
+}
+.rename-results {
+  max-height: 20vh;
+  overflow: auto;
+}
+@media (max-width: 850px) {
+  .rename-diff {
+    grid-template-columns: 1fr;
+  }
+}
