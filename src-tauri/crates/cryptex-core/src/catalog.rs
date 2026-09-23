@@ -5,6 +5,7 @@ use thiserror::Error;
 use ts_rs::TS;
 
 pub const COMMAND_CATALOG_SCHEMA_VERSION: u16 = 1;
+const BUNDLED_CATALOG: &str = include_str!("../assets/command-catalog-v1.json");
 const MAX_ENTRIES: usize = 10_000;
 const MAX_FIELD_BYTES: usize = 16 * 1024;
 
@@ -19,6 +20,12 @@ pub struct CommandCatalog {
 }
 
 impl CommandCatalog {
+    pub fn bundled() -> Result<Self, CatalogLoadError> {
+        let catalog: Self = serde_json::from_str(BUNDLED_CATALOG)?;
+        catalog.validate()?;
+        Ok(catalog)
+    }
+
     pub fn validate(&self) -> Result<(), CatalogError> {
         if self.api_version != API_VERSION {
             return Err(CatalogError::UnsupportedApiVersion(self.api_version));
@@ -50,6 +57,14 @@ impl CommandCatalog {
         }
         Ok(())
     }
+}
+
+#[derive(Debug, Error)]
+pub enum CatalogLoadError {
+    #[error("bundled command catalog is not valid JSON: {0}")]
+    Json(#[from] serde_json::Error),
+    #[error("bundled command catalog failed validation: {0}")]
+    Validation(#[from] CatalogError),
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
@@ -440,5 +455,39 @@ mod tests {
         value.snippet = ["\\[\n  $", "{1:expression with $x$}\n\\]\n$0"].concat();
         value.contexts = vec![CommandContext::Text];
         catalog(vec![value]).validate().unwrap();
+    }
+
+    #[test]
+    fn bundled_catalog_is_valid_versioned_and_curated() {
+        let catalog = CommandCatalog::bundled().unwrap();
+        assert_eq!(catalog.catalog_version, "2026.1");
+        assert!(catalog.entries.len() >= 16);
+        assert!(
+            catalog
+                .entries
+                .iter()
+                .any(|entry| entry.id == "latex.section")
+        );
+        assert!(
+            catalog
+                .entries
+                .iter()
+                .any(|entry| entry.id == "cryptocode.pseudocode")
+        );
+
+        let cryptocode = catalog
+            .entries
+            .iter()
+            .filter(|entry| entry.id.starts_with("cryptocode."))
+            .collect::<Vec<_>>();
+        assert!(cryptocode.len() >= 8);
+        assert!(cryptocode.iter().all(|entry| {
+            entry.requirements.iter().any(|requirement| {
+                requirement.package == "cryptocode"
+                    && requirement.version_requirement.as_deref() == Some("=0.44")
+            }) && entry.provenance.source_version == "0.44"
+                && entry.provenance.source_url
+                    == "https://mirrors.ctan.org/macros/latex/contrib/cryptocode/cryptocode.pdf"
+        }));
     }
 }

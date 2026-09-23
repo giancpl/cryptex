@@ -30,12 +30,13 @@ cd -- "$work_dir"
 
 latexmk -norc -pdf -interaction=nonstopmode -halt-on-error -file-line-error -synctex=1 minimal.tex
 latexmk -norc -pdf -interaction=nonstopmode -halt-on-error -file-line-error -synctex=1 cryptocode.tex
+latexmk -norc -pdf -interaction=nonstopmode -halt-on-error -file-line-error -synctex=1 catalog-snippets.tex
 latexmk -norc -pdf -interaction=nonstopmode -halt-on-error -file-line-error -synctex=1 tikz.tex
 latexmk -norc -pdf -interaction=nonstopmode -halt-on-error -file-line-error -synctex=1 biber.tex
 latexmk -norc -xelatex -interaction=nonstopmode -halt-on-error -file-line-error -synctex=1 unicode-engines.tex
 latexmk -norc -lualatex -interaction=nonstopmode -halt-on-error -file-line-error -synctex=1 unicode-engines.tex
 
-for artifact in minimal.pdf cryptocode.pdf tikz.pdf biber.pdf unicode-engines.pdf minimal.synctex.gz; do
+for artifact in minimal.pdf cryptocode.pdf catalog-snippets.pdf tikz.pdf biber.pdf unicode-engines.pdf minimal.synctex.gz; do
   test -s "$artifact"
 done
 

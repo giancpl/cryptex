@@ -1,0 +1,507 @@
+{
+  "apiVersion": 1,
+  "schemaVersion": 1,
+  "catalogVersion": "2026.1",
+  "entries": [
+    {
+      "id": "latex.section",
+      "command": "\\section",
+      "displayName": "Section",
+      "summary": "Starts a numbered document section.",
+      "concepts": ["section", "document structure"],
+      "synonyms": ["heading"],
+      "requirements": [],
+      "signature": "\\section{title}",
+      "snippet": "\\section{${1:Title}}\n$0",
+      "examples": [
+        {
+          "title": "Basic use",
+          "latex": "\\section{Introduction}",
+          "explanation": "Starts a numbered document section."
+        }
+      ],
+      "documentationUrl": "https://latexref.xyz/",
+      "contexts": ["text"],
+      "provenance": {
+        "sourceTitle": "LaTeX Project core documentation",
+        "sourceUrl": "https://www.latex-project.org/help/documentation/",
+        "sourceVersion": "LaTeX2e 2026-06-01"
+      }
+    },
+    {
+      "id": "latex.subsection",
+      "command": "\\subsection",
+      "displayName": "Subsection",
+      "summary": "Starts a numbered subsection.",
+      "concepts": ["subsection", "document structure"],
+      "synonyms": ["subheading"],
+      "requirements": [],
+      "signature": "\\subsection{title}",
+      "snippet": "\\subsection{${1:Title}}\n$0",
+      "examples": [
+        {
+          "title": "Basic use",
+          "latex": "\\subsection{Security model}",
+          "explanation": "Starts a numbered subsection."
+        }
+      ],
+      "documentationUrl": "https://latexref.xyz/",
+      "contexts": ["text"],
+      "provenance": {
+        "sourceTitle": "LaTeX Project core documentation",
+        "sourceUrl": "https://www.latex-project.org/help/documentation/",
+        "sourceVersion": "LaTeX2e 2026-06-01"
+      }
+    },
+    {
+      "id": "latex.label",
+      "command": "\\label",
+      "displayName": "Label",
+      "summary": "Defines a cross-reference target.",
+      "concepts": ["label", "cross reference"],
+      "synonyms": ["anchor"],
+      "requirements": [],
+      "signature": "\\label{key}",
+      "snippet": "\\label{${1:sec:key}}$0",
+      "examples": [
+        {
+          "title": "Basic use",
+          "latex": "\\label{sec:introduction}",
+          "explanation": "Defines a cross-reference target."
+        }
+      ],
+      "documentationUrl": "https://latexref.xyz/",
+      "contexts": ["text", "environment"],
+      "provenance": {
+        "sourceTitle": "LaTeX Project core documentation",
+        "sourceUrl": "https://www.latex-project.org/help/documentation/",
+        "sourceVersion": "LaTeX2e 2026-06-01"
+      }
+    },
+    {
+      "id": "latex.ref",
+      "command": "\\ref",
+      "displayName": "Reference",
+      "summary": "Prints the number of a labeled element.",
+      "concepts": ["reference", "cross reference"],
+      "synonyms": ["label reference"],
+      "requirements": [],
+      "signature": "\\ref{key}",
+      "snippet": "\\ref{${1:sec:key}}$0",
+      "examples": [
+        {
+          "title": "Basic use",
+          "latex": "Section~\\ref{sec:introduction}",
+          "explanation": "Prints the number of a labeled element."
+        }
+      ],
+      "documentationUrl": "https://latexref.xyz/",
+      "contexts": ["text"],
+      "provenance": {
+        "sourceTitle": "LaTeX Project core documentation",
+        "sourceUrl": "https://www.latex-project.org/help/documentation/",
+        "sourceVersion": "LaTeX2e 2026-06-01"
+      }
+    },
+    {
+      "id": "latex.cite",
+      "command": "\\cite",
+      "displayName": "Citation",
+      "summary": "Cites one or more bibliography keys.",
+      "concepts": ["citation", "bibliography"],
+      "synonyms": ["cite source"],
+      "requirements": [],
+      "signature": "\\cite{keys}",
+      "snippet": "\\cite{${1:key}}$0",
+      "examples": [
+        {
+          "title": "Basic use",
+          "latex": "\\cite{example2026}",
+          "explanation": "Cites one or more bibliography keys."
+        }
+      ],
+      "documentationUrl": "https://latexref.xyz/",
+      "contexts": ["text"],
+      "provenance": {
+        "sourceTitle": "LaTeX Project core documentation",
+        "sourceUrl": "https://www.latex-project.org/help/documentation/",
+        "sourceVersion": "LaTeX2e 2026-06-01"
+      }
+    },
+    {
+      "id": "latex.emph",
+      "command": "\\emph",
+      "displayName": "Emphasis",
+      "summary": "Applies context-sensitive emphasis to text.",
+      "concepts": ["emphasis", "text style"],
+      "synonyms": ["italic emphasis"],
+      "requirements": [],
+      "signature": "\\emph{text}",
+      "snippet": "\\emph{${1:text}}$0",
+      "examples": [
+        {
+          "title": "Basic use",
+          "latex": "\\emph{important}",
+          "explanation": "Applies context-sensitive emphasis to text."
+        }
+      ],
+      "documentationUrl": "https://latexref.xyz/",
+      "contexts": ["text"],
+      "provenance": {
+        "sourceTitle": "LaTeX Project core documentation",
+        "sourceUrl": "https://www.latex-project.org/help/documentation/",
+        "sourceVersion": "LaTeX2e 2026-06-01"
+      }
+    },
+    {
+      "id": "latex.textbf",
+      "command": "\\textbf",
+      "displayName": "Bold text",
+      "summary": "Typesets text using the bold series.",
+      "concepts": ["bold", "text style"],
+      "synonyms": ["strong text"],
+      "requirements": [],
+      "signature": "\\textbf{text}",
+      "snippet": "\\textbf{${1:text}}$0",
+      "examples": [
+        {
+          "title": "Basic use",
+          "latex": "\\textbf{Result}",
+          "explanation": "Typesets text using the bold series."
+        }
+      ],
+      "documentationUrl": "https://latexref.xyz/",
+      "contexts": ["text"],
+      "provenance": {
+        "sourceTitle": "LaTeX Project core documentation",
+        "sourceUrl": "https://www.latex-project.org/help/documentation/",
+        "sourceVersion": "LaTeX2e 2026-06-01"
+      }
+    },
+    {
+      "id": "latex.footnote",
+      "command": "\\footnote",
+      "displayName": "Footnote",
+      "summary": "Inserts a numbered footnote and its text.",
+      "concepts": ["footnote", "note"],
+      "synonyms": ["page note"],
+      "requirements": [],
+      "signature": "\\footnote{text}",
+      "snippet": "\\footnote{${1:text}}$0",
+      "examples": [
+        {
+          "title": "Basic use",
+          "latex": "Claim.\\footnote{Supporting detail.}",
+          "explanation": "Inserts a numbered footnote and its text."
+        }
+      ],
+      "documentationUrl": "https://latexref.xyz/",
+      "contexts": ["text"],
+      "provenance": {
+        "sourceTitle": "LaTeX Project core documentation",
+        "sourceUrl": "https://www.latex-project.org/help/documentation/",
+        "sourceVersion": "LaTeX2e 2026-06-01"
+      }
+    },
+    {
+      "id": "cryptocode.pseudocode",
+      "command": "\\pseudocode",
+      "displayName": "Pseudocode",
+      "summary": "Typesets an inline pseudocode block.",
+      "concepts": ["pseudocode", "algorithm"],
+      "synonyms": ["algorithm block"],
+      "requirements": [
+        {
+          "package": "cryptocode",
+          "versionRequirement": "=0.44"
+        }
+      ],
+      "signature": "\\pseudocode[options]{body}",
+      "snippet": "\\pseudocode{\n  ${1:x \\sample S} \\\\\n  \\pcreturn ${2:x}\n}\n$0",
+      "examples": [
+        {
+          "title": "Basic use",
+          "latex": "\\pseudocode{x \\sample S \\\\ \\pcreturn x}",
+          "explanation": "Typesets an inline pseudocode block."
+        }
+      ],
+      "documentationUrl": "https://ctan.org/pkg/cryptocode",
+      "contexts": ["text"],
+      "provenance": {
+        "sourceTitle": "Cryptocode: Typesetting Cryptography",
+        "sourceUrl": "https://mirrors.ctan.org/macros/latex/contrib/cryptocode/cryptocode.pdf",
+        "sourceVersion": "0.44"
+      }
+    },
+    {
+      "id": "cryptocode.procedureblock",
+      "command": "\\procedureblock",
+      "displayName": "Procedure block",
+      "summary": "Typesets a named display procedure.",
+      "concepts": ["procedure", "pseudocode", "algorithm"],
+      "synonyms": ["named algorithm"],
+      "requirements": [
+        {
+          "package": "cryptocode",
+          "versionRequirement": "=0.44"
+        }
+      ],
+      "signature": "\\procedureblock[options]{name}{body}",
+      "snippet": "\\procedureblock{${1:Name}}{\n  ${2:x \\sample S} \\\\\n  \\pcreturn ${3:x}\n}\n$0",
+      "examples": [
+        {
+          "title": "Basic use",
+          "latex": "\\procedureblock{Sample}{x \\sample S \\\\ \\pcreturn x}",
+          "explanation": "Typesets a named display procedure."
+        }
+      ],
+      "documentationUrl": "https://ctan.org/pkg/cryptocode",
+      "contexts": ["text"],
+      "provenance": {
+        "sourceTitle": "Cryptocode: Typesetting Cryptography",
+        "sourceUrl": "https://mirrors.ctan.org/macros/latex/contrib/cryptocode/cryptocode.pdf",
+        "sourceVersion": "0.44"
+      }
+    },
+    {
+      "id": "cryptocode.sample",
+      "command": "\\sample",
+      "displayName": "Random sampling",
+      "summary": "Produces the random-sampling assignment symbol.",
+      "concepts": ["random sampling", "assignment"],
+      "synonyms": ["sample uniformly", "draw"],
+      "requirements": [
+        {
+          "package": "cryptocode",
+          "versionRequirement": "=0.44"
+        }
+      ],
+      "signature": "x \\sample S",
+      "snippet": "${1:x} \\sample ${2:S}$0",
+      "examples": [
+        {
+          "title": "Basic use",
+          "latex": "x \\sample \\bin",
+          "explanation": "Produces the random-sampling assignment symbol."
+        }
+      ],
+      "documentationUrl": "https://ctan.org/pkg/cryptocode",
+      "contexts": ["math", "environment"],
+      "provenance": {
+        "sourceTitle": "Cryptocode: Typesetting Cryptography",
+        "sourceUrl": "https://mirrors.ctan.org/macros/latex/contrib/cryptocode/cryptocode.pdf",
+        "sourceVersion": "0.44"
+      }
+    },
+    {
+      "id": "cryptocode.gets",
+      "command": "\\gets",
+      "displayName": "Assignment",
+      "summary": "Produces the assignment arrow used in pseudocode.",
+      "concepts": ["assignment", "algorithm"],
+      "synonyms": ["set value"],
+      "requirements": [
+        {
+          "package": "cryptocode",
+          "versionRequirement": "=0.44"
+        }
+      ],
+      "signature": "x \\gets y",
+      "snippet": "${1:x} \\gets ${2:y}$0",
+      "examples": [
+        {
+          "title": "Basic use",
+          "latex": "c \\gets \\enc(k,m)",
+          "explanation": "Produces the assignment arrow used in pseudocode."
+        }
+      ],
+      "documentationUrl": "https://ctan.org/pkg/cryptocode",
+      "contexts": ["math", "environment"],
+      "provenance": {
+        "sourceTitle": "Cryptocode: Typesetting Cryptography",
+        "sourceUrl": "https://mirrors.ctan.org/macros/latex/contrib/cryptocode/cryptocode.pdf",
+        "sourceVersion": "0.44"
+      }
+    },
+    {
+      "id": "cryptocode.pcreturn",
+      "command": "\\pcreturn",
+      "displayName": "Return",
+      "summary": "Typesets the pseudocode return keyword.",
+      "concepts": ["return", "control flow"],
+      "synonyms": ["output value"],
+      "requirements": [
+        {
+          "package": "cryptocode",
+          "versionRequirement": "=0.44"
+        }
+      ],
+      "signature": "\\pcreturn value",
+      "snippet": "\\pcreturn ${1:value}$0",
+      "examples": [
+        {
+          "title": "Basic use",
+          "latex": "\\pcreturn b",
+          "explanation": "Typesets the pseudocode return keyword."
+        }
+      ],
+      "documentationUrl": "https://ctan.org/pkg/cryptocode",
+      "contexts": ["environment"],
+      "provenance": {
+        "sourceTitle": "Cryptocode: Typesetting Cryptography",
+        "sourceUrl": "https://mirrors.ctan.org/macros/latex/contrib/cryptocode/cryptocode.pdf",
+        "sourceVersion": "0.44"
+      }
+    },
+    {
+      "id": "cryptocode.pcif",
+      "command": "\\pcif",
+      "displayName": "If statement",
+      "summary": "Starts an indented pseudocode conditional.",
+      "concepts": ["conditional", "control flow"],
+      "synonyms": ["if statement", "branch"],
+      "requirements": [
+        {
+          "package": "cryptocode",
+          "versionRequirement": "=0.44"
+        }
+      ],
+      "signature": "\\pcif condition",
+      "snippet": "\\pcif ${1:condition} \\pcthen \\\\\n  ${2:body} \\\\\n\\pcfi\n$0",
+      "examples": [
+        {
+          "title": "Basic use",
+          "latex": "\\pcif b=1 \\\\ \\pcreturn 1",
+          "explanation": "Starts an indented pseudocode conditional."
+        }
+      ],
+      "documentationUrl": "https://ctan.org/pkg/cryptocode",
+      "contexts": ["environment"],
+      "provenance": {
+        "sourceTitle": "Cryptocode: Typesetting Cryptography",
+        "sourceUrl": "https://mirrors.ctan.org/macros/latex/contrib/cryptocode/cryptocode.pdf",
+        "sourceVersion": "0.44"
+      }
+    },
+    {
+      "id": "cryptocode.pcfor",
+      "command": "\\pcfor",
+      "displayName": "For loop",
+      "summary": "Starts an indented pseudocode for loop.",
+      "concepts": ["loop", "control flow"],
+      "synonyms": ["for loop", "iteration"],
+      "requirements": [
+        {
+          "package": "cryptocode",
+          "versionRequirement": "=0.44"
+        }
+      ],
+      "signature": "\\pcfor range",
+      "snippet": "\\pcfor ${1:i \\in S} \\pcdo \\\\\n  ${2:body} \\\\\n\\pcendfor\n$0",
+      "examples": [
+        {
+          "title": "Basic use",
+          "latex": "\\pcfor i=1,\\ldots,n \\\\ x_i \\sample \\bin",
+          "explanation": "Starts an indented pseudocode for loop."
+        }
+      ],
+      "documentationUrl": "https://ctan.org/pkg/cryptocode",
+      "contexts": ["environment"],
+      "provenance": {
+        "sourceTitle": "Cryptocode: Typesetting Cryptography",
+        "sourceUrl": "https://mirrors.ctan.org/macros/latex/contrib/cryptocode/cryptocode.pdf",
+        "sourceVersion": "0.44"
+      }
+    },
+    {
+      "id": "cryptocode.pcwhile",
+      "command": "\\pcwhile",
+      "displayName": "While loop",
+      "summary": "Starts an indented pseudocode while loop.",
+      "concepts": ["loop", "control flow"],
+      "synonyms": ["while loop", "iteration"],
+      "requirements": [
+        {
+          "package": "cryptocode",
+          "versionRequirement": "=0.44"
+        }
+      ],
+      "signature": "\\pcwhile condition",
+      "snippet": "\\pcwhile ${1:condition} \\pcdo \\\\\n  ${2:body} \\\\\n\\pcendwhile\n$0",
+      "examples": [
+        {
+          "title": "Basic use",
+          "latex": "\\pcwhile x=0 \\\\ x \\sample \\bin",
+          "explanation": "Starts an indented pseudocode while loop."
+        }
+      ],
+      "documentationUrl": "https://ctan.org/pkg/cryptocode",
+      "contexts": ["environment"],
+      "provenance": {
+        "sourceTitle": "Cryptocode: Typesetting Cryptography",
+        "sourceUrl": "https://mirrors.ctan.org/macros/latex/contrib/cryptocode/cryptocode.pdf",
+        "sourceVersion": "0.44"
+      }
+    },
+    {
+      "id": "cryptocode.sendmessageright",
+      "command": "\\sendmessageright",
+      "displayName": "Send message right",
+      "summary": "Draws a protocol message arrow to the right.",
+      "concepts": ["protocol message", "communication"],
+      "synonyms": ["send right", "message arrow"],
+      "requirements": [
+        {
+          "package": "cryptocode",
+          "versionRequirement": "=0.44"
+        }
+      ],
+      "signature": "\\sendmessageright{message}",
+      "snippet": "\\sendmessageright{${1:message}}$0",
+      "examples": [
+        {
+          "title": "Basic use",
+          "latex": "\\sendmessageright{c}",
+          "explanation": "Draws a protocol message arrow to the right."
+        }
+      ],
+      "documentationUrl": "https://ctan.org/pkg/cryptocode",
+      "contexts": ["environment"],
+      "provenance": {
+        "sourceTitle": "Cryptocode: Typesetting Cryptography",
+        "sourceUrl": "https://mirrors.ctan.org/macros/latex/contrib/cryptocode/cryptocode.pdf",
+        "sourceVersion": "0.44"
+      }
+    },
+    {
+      "id": "cryptocode.sendmessageleft",
+      "command": "\\sendmessageleft",
+      "displayName": "Send message left",
+      "summary": "Draws a protocol message arrow to the left.",
+      "concepts": ["protocol message", "communication"],
+      "synonyms": ["send left", "message arrow"],
+      "requirements": [
+        {
+          "package": "cryptocode",
+          "versionRequirement": "=0.44"
+        }
+      ],
+      "signature": "\\sendmessageleft{message}",
+      "snippet": "\\sendmessageleft{${1:message}}$0",
+      "examples": [
+        {
+          "title": "Basic use",
+          "latex": "\\sendmessageleft{r}",
+          "explanation": "Draws a protocol message arrow to the left."
+        }
+      ],
+      "documentationUrl": "https://ctan.org/pkg/cryptocode",
+      "contexts": ["environment"],
+      "provenance": {
+        "sourceTitle": "Cryptocode: Typesetting Cryptography",
+        "sourceUrl": "https://mirrors.ctan.org/macros/latex/contrib/cryptocode/cryptocode.pdf",
+        "sourceVersion": "0.44"
+      }
+    }
+  ]
+}

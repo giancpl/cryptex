@@ -37,3 +37,16 @@ literal math dollar signs remain valid.
 
 The schema limits a catalog to 10,000 entries and individual string fields to 16 KiB.
 H1 contains no curated command claims; those begin in H2.
+
+## Bundled baseline
+
+H2 ships catalog version `2026.1` as `command-catalog-v1.json`. It includes eight
+LaTeX entries for structure, cross-references, citations, and text styling, plus ten
+entries from `cryptocode` 0.44 for pseudocode/procedures, assignment and sampling,
+control flow, and protocol messages. The dataset is deliberately a useful baseline,
+not an exhaustive index.
+
+The LaTeX entries link to the June 2026 reference manual and cite the LaTeX Project core documentation for the LaTeX2e 2026-06-01 release. Every `cryptocode`
+entry requires exactly package version 0.44 and cites the official CTAN manual. The
+isolated TeX Live fixture `catalog-snippets.tex` compiles representative insertions;
+schema tests separately ensure that every bundled entry loads and validates.

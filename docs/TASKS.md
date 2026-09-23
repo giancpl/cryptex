@@ -96,7 +96,10 @@
 - H1: implemented with a versioned typed schema, stable IDs, concepts/synonyms,
   package/version requirements, contexts, snippets/examples, HTTPS provenance,
   contribution rules, and duplicate/malformed-entry validation.
-- Next: H2 curated LaTeX and cryptocode catalog.
+- H2: implemented with a bundled validated baseline of common LaTeX and cryptocode
+  0.44 commands, primary-documentation provenance, exact package-version requirements,
+  and representative compilation in the isolated toolchain fixture runner.
+- Next: H3 local search and contextual ranking.
 
 The authoritative sequence is:
 

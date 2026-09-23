@@ -49,4 +49,4 @@ race-safe retention of the last successful PDF, and bidirectional SyncTeX naviga
 between source and preview. The bounded best-effort project-index contract is frozen;
 bounded tolerant extraction and incremental include/dependency indexing are implemented;
 a live outline provides project-wide indexed navigation; the versioned command-catalog
-contract is frozen and curated LaTeX/cryptocode data (H2) is next. No production release exists.
+contract is frozen and an offline, version-pinned baseline LaTeX/cryptocode catalog is bundled and fixture-tested. Local contextual search and ranking (H3) is next. No production release exists.

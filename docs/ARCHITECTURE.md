@@ -187,4 +187,9 @@ synonyms, package/version requirements, signatures, validated snippets, examples
 contexts, HTTPS documentation, and source/version provenance. Validation rejects
 duplicate IDs and command variants, malformed placeholders, invalid package names,
 insecure links, and incomplete evidence. See [Command catalog](COMMAND_CATALOG.md).
-No catalog entry is curated until H2.
+H2 bundles the validated version-1 data as a compile-time Rust asset. The baseline covers
+common LaTeX structure, cross-references, citations, text styling, and representative
+cryptocode 0.44 pseudocode, control-flow, sampling, assignment, and protocol-message
+constructs. Each package entry names exactly cryptocode 0.44 and links to the CTAN
+manual; representative snippets are compiled by the isolated TeX Live fixture runner.
+Catalog loading fails closed if the bundled JSON stops matching the H1 contract.

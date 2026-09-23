@@ -2,7 +2,7 @@
 
 - Unit tests cover deterministic utilities, parsers, reducers, schedulers, index schema
   invariants, tolerant scanner recovery/limits, incremental graph updates, cancellation,
-  indexed navigation/ambiguity, catalog schema/snippet validation, and ranking.
+  indexed navigation/ambiguity, catalog schema/snippet validation, bundled-data provenance, and ranking.
 - Rust integration tests cover paths, symlinks, atomic writes, watchers, processes,
   compiler construction, diagnostics, and SyncTeX.
 - Frontend tests cover editor state, panels, Finder, notation, and accessibility.

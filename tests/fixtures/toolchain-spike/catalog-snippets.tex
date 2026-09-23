@@ -1,0 +1,22 @@
+\documentclass{article}
+\usepackage[operators]{cryptocode}
+\begin{document}
+\section{Catalog snippets}\label{sec:catalog}
+See Section~\ref{sec:catalog}. \emph{Representative} \textbf{offline} entries.
+\procedureblock{Sample}{
+  x \sample \bin \\
+  y \gets x \\
+  \pcif y=1 \pcthen \\
+    y \gets 0 \\
+  \pcfi \\
+  \pcfor i \pcin \{1,2\} \pcdo \\
+    y \sample \bin \\
+  \pcendfor \\
+  \pcwhile y=0 \pcdo \\
+    y \sample \bin \\
+  \pcendwhile \\
+  \pcreturn y
+}
+\pseudocode{\textbf{Alice} \> \sendmessageright*{c} \> \textbf{Bob} \\
+\textbf{Alice} \> \sendmessageleft*{r} \> \textbf{Bob}}
+\end{document}
