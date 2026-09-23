@@ -16,7 +16,9 @@ import type { InverseSynctexRequest } from "../bindings/InverseSynctexRequest";
 import type { LatexEngine } from "../bindings/LatexEngine";
 import type { EffectiveNotationProfile } from "../bindings/EffectiveNotationProfile";
 import type { NotationProfile } from "../bindings/NotationProfile";
+import type { ProjectNotationDiagnostics } from "../bindings/ProjectNotationDiagnostics";
 import type { ProjectNotationOverrides } from "../bindings/ProjectNotationOverrides";
+import type { ProjectNotationSuppressions } from "../bindings/ProjectNotationSuppressions";
 import type { ProjectNotationUsage } from "../bindings/ProjectNotationUsage";
 import type { RecoveryInventory } from "../bindings/RecoveryInventory";
 import type { RecoverySnapshot } from "../bindings/RecoverySnapshot";
@@ -43,16 +45,33 @@ export interface BackendClient {
     context: CommandContext | null,
     limit: number,
   ): Promise<CatalogSearchHit[]>;
-  notationProfile(projectId: string): Promise<EffectiveNotationProfile>;
-  notationUsage(projectId: string): Promise<ProjectNotationUsage>;
-  setGlobalNotationProfile(profile: NotationProfile): Promise<void>;
-  resetGlobalNotationProfile(): Promise<void>;
+  notationProfile(
+    this: void,
+    projectId: string,
+  ): Promise<EffectiveNotationProfile>;
+  notationUsage(this: void, projectId: string): Promise<ProjectNotationUsage>;
+  notationDiagnostics(
+    this: void,
+    projectId: string,
+  ): Promise<ProjectNotationDiagnostics>;
+  notationSuppressions(
+    this: void,
+    projectId: string,
+  ): Promise<ProjectNotationSuppressions>;
+  setNotationSuppressions(
+    this: void,
+    projectId: string,
+    suppressions: ProjectNotationSuppressions,
+  ): Promise<ProjectNotationSuppressions>;
+  setGlobalNotationProfile(this: void, profile: NotationProfile): Promise<void>;
+  resetGlobalNotationProfile(this: void): Promise<void>;
   setProjectNotationOverrides(
+    this: void,
     projectId: string,
     overrides: ProjectNotationOverrides,
   ): Promise<EffectiveNotationProfile>;
-  importNotationProfile(json: string): Promise<NotationProfile>;
-  exportNotationProfile(): Promise<string>;
+  importNotationProfile(this: void, json: string): Promise<NotationProfile>;
+  exportNotationProfile(this: void): Promise<string>;
   readTextFile(projectId: string, relativePath: string): Promise<TextDocument>;
   writeTextFile(
     this: void,
@@ -167,6 +186,15 @@ export const backendClient: BackendClient = {
     invoke<EffectiveNotationProfile>("notation_profile", { projectId }),
   notationUsage: (projectId) =>
     invoke<ProjectNotationUsage>("notation_usage", { projectId }),
+  notationDiagnostics: (projectId) =>
+    invoke<ProjectNotationDiagnostics>("notation_diagnostics", { projectId }),
+  notationSuppressions: (projectId) =>
+    invoke<ProjectNotationSuppressions>("notation_suppressions", { projectId }),
+  setNotationSuppressions: (projectId, suppressions) =>
+    invoke<ProjectNotationSuppressions>("set_notation_suppressions", {
+      projectId,
+      suppressions,
+    }),
   setGlobalNotationProfile: (profile) =>
     invoke<void>("set_global_notation_profile", { profile }),
   resetGlobalNotationProfile: () =>

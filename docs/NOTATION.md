@@ -60,3 +60,17 @@ Results include concept ID, matched form, preferred status, source range, and di
 fingerprint. The project scan uses the current index limits and marks itself incomplete
 when input is skipped, truncated, unreadable, or changed since indexing. It never turns
 uncertain text into a usage.
+
+## Consistency findings and suppressions
+
+I4 emits an informational finding when an exact declared form differs from the
+configured preference. If multiple declared forms for the same concept occur, each
+nonpreferred exact occurrence becomes a warning and lists the deterministic evidence.
+Preferred-only usage produces no finding. Messages describe consistency with a user
+profile and never say that notation is mathematically wrong.
+
+The Notation checks panel navigates to the exact source range and reports when the
+underlying scan is incomplete. A user can suppress a concept project-wide through the
+typed API or suppress it in one file from the panel. Suppressions contain only a known
+concept ID and optional validated project-relative path; they are stored outside the
+project and never modify LaTeX. I4 offers no automatic replacement.

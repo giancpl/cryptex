@@ -252,3 +252,14 @@ omitted as ambiguous. Every accepted usage carries its concept ID, exact form,
 preferred flag, fingerprint, and Unicode-aware source range. Files whose fresh
 backend read no longer matches the indexed fingerprint are omitted and mark the
 snapshot incomplete rather than publishing stale evidence.
+
+## Notation consistency diagnostics
+
+I4 consumes only I3 exact evidence. A sole nonpreferred declared form produces an
+informational finding; observing multiple declared forms for one concept upgrades
+nonpreferred occurrences to warnings. Findings include the matched form, configured
+preference, all observed declared forms, fingerprint, and source range, and their
+messages describe configuration evidence without asserting mathematical correctness.
+Project-wide or per-file concept suppressions are validated and stored atomically in
+the external I1 settings. The frontend exposes read-only navigation and an explicit
+per-file suppression action; it performs no replacement.

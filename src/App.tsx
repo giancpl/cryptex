@@ -7,6 +7,9 @@ import type { CommandContext } from "./bindings/CommandContext";
 import type { Diagnostic } from "./bindings/Diagnostic";
 import type { DiagnosticSeverity } from "./bindings/DiagnosticSeverity";
 import type { EffectiveNotationConcept } from "./bindings/EffectiveNotationConcept";
+import type { NotationDiagnostic } from "./bindings/NotationDiagnostic";
+import type { ProjectNotationDiagnostics } from "./bindings/ProjectNotationDiagnostics";
+import type { ProjectNotationSuppressions } from "./bindings/ProjectNotationSuppressions";
 import type { FileTreeEntry } from "./bindings/FileTreeEntry";
 import type { FileTreePage } from "./bindings/FileTreePage";
 import type { RecoveryInventory } from "./bindings/RecoveryInventory";
@@ -57,6 +60,10 @@ export function App({
 }: AppProps) {
   const [project, setProject] = useState<ProjectSummary | null>(null);
   const [projectIndex, setProjectIndex] = useState<ProjectIndex | null>(null);
+  const [notationDiagnostics, setNotationDiagnostics] =
+    useState<ProjectNotationDiagnostics | null>(null);
+  const [notationSuppressions, setNotationSuppressions] =
+    useState<ProjectNotationSuppressions | null>(null);
   const [directories, setDirectories] = useState<Record<string, FileTreePage>>(
     {},
   );
@@ -382,10 +389,15 @@ export function App({
     void client
       .onProjectFileChange((change) => {
         if (disposed || change.projectId !== project.projectId) return;
-        void client
-          .projectIndex(project.projectId)
-          .then((index) => {
-            if (!disposed) setProjectIndex(index);
+        void Promise.all([
+          client.projectIndex(project.projectId),
+          client.notationDiagnostics(project.projectId),
+        ])
+          .then(([index, diagnostics]) => {
+            if (!disposed) {
+              setProjectIndex(index);
+              setNotationDiagnostics(diagnostics);
+            }
           })
           .catch((reason: unknown) => {
             if (!disposed) setError(errorMessage(reason));
@@ -672,14 +684,25 @@ export function App({
     setError(null);
     try {
       const opened = await client.openProject(selected);
-      const [root, detectedRoots, recoveries, index] = await Promise.all([
+      const [
+        root,
+        detectedRoots,
+        recoveries,
+        index,
+        notationChecks,
+        suppressions,
+      ] = await Promise.all([
         client.listDirectory(opened.projectId, ""),
         client.detectRootDocuments(opened.projectId),
         client.listRecoverySnapshots(opened.projectId),
         client.projectIndex(opened.projectId),
+        client.notationDiagnostics(opened.projectId),
+        client.notationSuppressions(opened.projectId),
       ]);
       setProject(opened);
       setProjectIndex(index);
+      setNotationDiagnostics(notationChecks);
+      setNotationSuppressions(suppressions);
       setDirectories({ "": root });
       setRootDocuments(detectedRoots);
       setRecoveryInventory(recoveries);
@@ -927,6 +950,34 @@ export function App({
     } catch (reason) {
       if (synctexRequestRef.current === request)
         setSynctexMessage(errorMessage(reason));
+    }
+  }
+
+  async function suppressNotationDiagnostic(diagnostic: NotationDiagnostic) {
+    if (!project || !notationSuppressions) return;
+    const alreadySuppressed = notationSuppressions.items.some(
+      (item) =>
+        item.conceptId === diagnostic.conceptId &&
+        item.relativePath === diagnostic.relativePath,
+    );
+    if (alreadySuppressed) return;
+    try {
+      const updated = await client.setNotationSuppressions(project.projectId, {
+        version: notationSuppressions.version,
+        items: [
+          ...notationSuppressions.items,
+          {
+            conceptId: diagnostic.conceptId,
+            relativePath: diagnostic.relativePath,
+          },
+        ],
+      });
+      setNotationSuppressions(updated);
+      setNotationDiagnostics(
+        await client.notationDiagnostics(project.projectId),
+      );
+    } catch (reason) {
+      setError(errorMessage(reason));
     }
   }
 
@@ -1353,6 +1404,76 @@ export function App({
                       <pre className="build-log">{rawBuildLog}</pre>
                     </details>
                   ) : null}
+                </section>
+              ) : null}
+              {notationDiagnostics ? (
+                <section
+                  className="problems-panel notation-problems"
+                  aria-labelledby="notation-problems-title"
+                >
+                  <div className="problems-heading">
+                    <h3 id="notation-problems-title">Notation checks</h3>
+                    <small>
+                      {notationDiagnostics.diagnostics.length} findings
+                      {notationDiagnostics.suppressedCount
+                        ? " · " +
+                          notationDiagnostics.suppressedCount +
+                          " suppressed"
+                        : ""}
+                    </small>
+                  </div>
+                  {notationDiagnostics.incomplete ? (
+                    <p className="stale-diagnostics" role="status">
+                      Results are incomplete because some project evidence was
+                      skipped.
+                    </p>
+                  ) : null}
+                  {notationDiagnostics.diagnostics.length ? (
+                    <ul className="problem-list">
+                      {notationDiagnostics.diagnostics.map((diagnostic) => (
+                        <li
+                          className="notation-problem"
+                          key={
+                            diagnostic.relativePath +
+                            ":" +
+                            diagnostic.range.startByte +
+                            ":" +
+                            diagnostic.conceptId
+                          }
+                        >
+                          <button
+                            type="button"
+                            className={"problem problem-" + diagnostic.severity}
+                            onClick={() =>
+                              void navigateToSource(
+                                diagnostic.relativePath,
+                                diagnostic.range.startLine,
+                                diagnostic.range.startColumn,
+                              )
+                            }
+                          >
+                            <strong>{diagnostic.code}</strong>
+                            <span>{diagnostic.message}</span>
+                            <small>
+                              {diagnostic.relativePath}:
+                              {diagnostic.range.startLine}
+                            </small>
+                          </button>
+                          <button
+                            type="button"
+                            className="suppress-notation"
+                            onClick={() =>
+                              void suppressNotationDiagnostic(diagnostic)
+                            }
+                          >
+                            Suppress in this file
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>No high-confidence notation inconsistencies found.</p>
+                  )}
                 </section>
               ) : null}
               {recoveryInventory &&

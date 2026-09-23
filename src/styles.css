@@ -494,6 +494,24 @@ input {
   color: #82909f;
   font-size: 0.68rem;
 }
+.notation-problem {
+  display: grid;
+  gap: 4px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.notation-problem .suppress-notation {
+  align-self: stretch;
+  background: #202a31;
+  border: 1px solid #40515d;
+  border-radius: 4px;
+  color: #b7c0c9;
+  cursor: pointer;
+  font-size: 0.68rem;
+  padding: 5px;
+}
+.notation-problems .problems-heading small {
+  color: #82909f;
+}
 .problems-panel > button {
   background: #283640;
   border: 1px solid #40515d;

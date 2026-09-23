@@ -116,7 +116,10 @@
 - I3: implemented with a bounded exact-form trie scanner, comment/inline-verbatim/
   verbatim-environment exclusion, command-boundary checks, Unicode source ranges,
   project-index limits, and stale-fingerprint rejection.
-- Next: I4 conservative notation consistency diagnostics.
+- I4: implemented with deterministic informational/warning findings, exact evidence,
+  source navigation, incomplete-result disclosure, and validated project/file
+  suppressions stored outside source trees.
+- Next: I5 reviewed notation rename preview.
 
 The authoritative sequence is:
 

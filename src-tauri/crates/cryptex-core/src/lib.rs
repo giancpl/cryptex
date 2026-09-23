@@ -6,6 +6,7 @@ pub mod compiler;
 pub mod diagnostics;
 pub mod index;
 pub mod notation;
+pub mod notation_diagnostics;
 pub mod notation_usage;
 pub mod process;
 pub mod project;

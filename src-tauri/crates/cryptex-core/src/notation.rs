@@ -3,7 +3,10 @@
 //! Profiles describe literal LaTeX forms only. They do not assert mathematical
 //! equivalence and they never write into a project directory.
 
-use crate::{api::API_VERSION, project::ProjectId};
+use crate::{
+    api::API_VERSION,
+    project::{ProjectId, ProjectPath},
+};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
@@ -57,6 +60,22 @@ pub struct ProjectNotationOverrides {
     pub concepts: Vec<NotationConceptOverride>,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, export_to = "../../../../src/bindings/")]
+pub struct NotationSuppression {
+    pub concept_id: String,
+    pub relative_path: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, export_to = "../../../../src/bindings/")]
+pub struct ProjectNotationSuppressions {
+    pub version: u16,
+    pub items: Vec<NotationSuppression>,
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "../../../../src/bindings/")]
@@ -94,12 +113,15 @@ struct StoredNotationProfiles {
     version: u16,
     global: Option<NotationProfile>,
     projects: HashMap<String, ProjectNotationOverrides>,
+    #[serde(default)]
+    suppressions: HashMap<String, Vec<NotationSuppression>>,
 }
 
 pub struct NotationService {
     path: PathBuf,
     global: Option<NotationProfile>,
     projects: HashMap<String, ProjectNotationOverrides>,
+    suppressions: HashMap<String, Vec<NotationSuppression>>,
 }
 
 impl NotationService {
@@ -120,6 +142,7 @@ impl NotationService {
                 version: NOTATION_PROFILE_VERSION,
                 global: None,
                 projects: HashMap::new(),
+                suppressions: HashMap::new(),
             },
             Err(error) => return Err(NotationError::Io(error)),
         };
@@ -133,11 +156,22 @@ impl NotationService {
                 stored.global.as_ref().unwrap_or(&default_profile()),
             )?;
         }
-        Ok(Self {
+        let service = Self {
             path,
             global: stored.global,
             projects: stored.projects,
-        })
+            suppressions: stored.suppressions,
+        };
+        let base = service
+            .global
+            .as_ref()
+            .cloned()
+            .unwrap_or_else(default_profile);
+        for (project_id, items) in &service.suppressions {
+            ProjectId::parse(project_id).map_err(|_| NotationError::InvalidProject)?;
+            validate_suppressions(items, &base)?;
+        }
+        Ok(service)
     }
 
     pub fn effective(
@@ -196,6 +230,9 @@ impl NotationService {
         for overrides in self.projects.values() {
             validate_overrides(overrides, &profile)?;
         }
+        for items in self.suppressions.values() {
+            validate_suppressions(items, &profile)?;
+        }
         let previous = self.global.replace(profile);
         if let Err(error) = self.persist() {
             self.global = previous;
@@ -208,6 +245,9 @@ impl NotationService {
         let defaults = default_profile();
         for overrides in self.projects.values() {
             validate_overrides(overrides, &defaults)?;
+        }
+        for items in self.suppressions.values() {
+            validate_suppressions(items, &defaults)?;
         }
         let previous = self.global.take();
         if let Err(error) = self.persist() {
@@ -246,6 +286,53 @@ impl NotationService {
         Ok(())
     }
 
+    pub fn suppressions(
+        &self,
+        project_id: &str,
+    ) -> Result<ProjectNotationSuppressions, NotationError> {
+        let project_id = ProjectId::parse(project_id).map_err(|_| NotationError::InvalidProject)?;
+        Ok(ProjectNotationSuppressions {
+            version: NOTATION_PROFILE_VERSION,
+            items: self
+                .suppressions
+                .get(project_id.as_str())
+                .cloned()
+                .unwrap_or_default(),
+        })
+    }
+
+    pub fn set_suppressions(
+        &mut self,
+        project_id: &str,
+        value: ProjectNotationSuppressions,
+    ) -> Result<(), NotationError> {
+        let project_id = ProjectId::parse(project_id).map_err(|_| NotationError::InvalidProject)?;
+        if value.version != NOTATION_PROFILE_VERSION {
+            return Err(NotationError::UnsupportedVersion(value.version));
+        }
+        let base = self
+            .global
+            .as_ref()
+            .cloned()
+            .unwrap_or_else(default_profile);
+        validate_suppressions(&value.items, &base)?;
+        let key = project_id.as_str().to_owned();
+        let previous = if value.items.is_empty() {
+            self.suppressions.remove(&key)
+        } else {
+            self.suppressions.insert(key.clone(), value.items)
+        };
+        if let Err(error) = self.persist() {
+            if let Some(previous) = previous {
+                self.suppressions.insert(key, previous);
+            } else {
+                self.suppressions.remove(&key);
+            }
+            return Err(error);
+        }
+        Ok(())
+    }
+
     pub fn import_global(&mut self, json: &str) -> Result<NotationProfile, NotationError> {
         if json.len() > MAX_PROFILE_BYTES {
             return Err(NotationError::TooLarge);
@@ -269,6 +356,7 @@ impl NotationService {
             version: NOTATION_PROFILE_VERSION,
             global: self.global.clone(),
             projects: self.projects.clone(),
+            suppressions: self.suppressions.clone(),
         })
         .map_err(NotationError::Serialize)?;
         if bytes.len() > MAX_PROFILE_BYTES {
@@ -408,6 +496,41 @@ fn validate_overrides(
         concept.declared_forms.clone_from(&item.declared_forms);
     }
     validate_profile(&effective)
+}
+
+fn validate_suppressions(
+    items: &[NotationSuppression],
+    profile: &NotationProfile,
+) -> Result<(), NotationError> {
+    if items.len() > MAX_CONCEPTS * 4 {
+        return Err(NotationError::InvalidProfile(
+            "too many notation suppressions".to_owned(),
+        ));
+    }
+    let known: HashSet<&str> = profile
+        .concepts
+        .iter()
+        .map(|item| item.id.as_str())
+        .collect();
+    let mut seen = HashSet::new();
+    for item in items {
+        if !known.contains(item.concept_id.as_str()) {
+            return Err(NotationError::UnknownConcept(item.concept_id.clone()));
+        }
+        if let Some(path) = &item.relative_path
+            && (path.is_empty() || ProjectPath::parse(path).is_err())
+        {
+            return Err(NotationError::InvalidProfile(format!(
+                "invalid suppression path: {path}"
+            )));
+        }
+        if !seen.insert((item.concept_id.as_str(), item.relative_path.as_deref())) {
+            return Err(NotationError::InvalidProfile(
+                "duplicate notation suppression".to_owned(),
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn validate_forms(preferred: &str, forms: &[String]) -> Result<(), NotationError> {
@@ -595,6 +718,97 @@ mod tests {
             service.set_global(profile),
             Err(NotationError::InvalidProfile(_))
         ));
+    }
+
+    #[test]
+    fn loads_version_one_store_created_before_suppressions() {
+        let directory = tempdir().unwrap();
+        let path = directory.path().join("notation.json");
+        fs::write(&path, br#"{"version":1,"global":null,"projects":{}}"#).unwrap();
+        assert!(
+            NotationService::load(path)
+                .unwrap()
+                .suppressions(&project_id())
+                .unwrap()
+                .items
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn suppressions_are_validated_persisted_and_clearable() {
+        let directory = tempdir().unwrap();
+        let path = directory.path().join("notation.json");
+        let mut service = NotationService::load(path.clone()).unwrap();
+        let value = ProjectNotationSuppressions {
+            version: 1,
+            items: vec![NotationSuppression {
+                concept_id: "adversary".to_owned(),
+                relative_path: Some("chapters/game.tex".to_owned()),
+            }],
+        };
+        service
+            .set_suppressions(&project_id(), value.clone())
+            .unwrap();
+        assert_eq!(
+            NotationService::load(path.clone())
+                .unwrap()
+                .suppressions(&project_id())
+                .unwrap(),
+            value
+        );
+        service
+            .set_suppressions(
+                &project_id(),
+                ProjectNotationSuppressions {
+                    version: 1,
+                    items: Vec::new(),
+                },
+            )
+            .unwrap();
+        assert!(
+            NotationService::load(path)
+                .unwrap()
+                .suppressions(&project_id())
+                .unwrap()
+                .items
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn suppressions_reject_unknown_concepts_unsafe_paths_and_duplicates() {
+        let directory = tempdir().unwrap();
+        let mut service = NotationService::load(directory.path().join("notation.json")).unwrap();
+        for items in [
+            vec![NotationSuppression {
+                concept_id: "unknown".to_owned(),
+                relative_path: None,
+            }],
+            vec![NotationSuppression {
+                concept_id: "adversary".to_owned(),
+                relative_path: Some("../outside.tex".to_owned()),
+            }],
+            vec![
+                NotationSuppression {
+                    concept_id: "adversary".to_owned(),
+                    relative_path: None,
+                },
+                NotationSuppression {
+                    concept_id: "adversary".to_owned(),
+                    relative_path: None,
+                },
+            ],
+        ] {
+            assert!(
+                service
+                    .set_suppressions(
+                        &project_id(),
+                        ProjectNotationSuppressions { version: 1, items },
+                    )
+                    .is_err()
+            );
+        }
     }
 
     #[test]

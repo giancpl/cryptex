@@ -768,6 +768,93 @@ describe("App", () => {
       expect(client.cleanBuildArtifacts).toHaveBeenCalledWith(projectId),
     );
   });
+  it("shows deterministic notation findings, navigates, and suppresses by file", async () => {
+    const projectId = "7".repeat(64);
+    const client = conflictClient(
+      projectId,
+      vi.fn().mockResolvedValue({
+        apiVersion: 1,
+        relativePath: "main.tex",
+        text: "\\mathsf{A}",
+        fingerprint: "b".repeat(64),
+        sizeBytes: 10,
+      }),
+      () => undefined,
+    );
+    const finding = {
+      code: "nonPreferredDeclaredForm" as const,
+      severity: "information" as const,
+      conceptId: "adversary",
+      conceptLabel: "Adversary",
+      message:
+        "This exact declared form for Adversary is \\mathsf{A}; the configured preferred form is \\mathcal{A}.",
+      relativePath: "main.tex",
+      fingerprint: "b".repeat(64),
+      range: {
+        startByte: 0n,
+        endByte: 10n,
+        startLine: 1,
+        startColumn: 1,
+        endLine: 1,
+        endColumn: 11,
+      },
+      observedForm: "\\mathsf{A}",
+      preferredForm: "\\mathcal{A}",
+      evidenceForms: ["\\mathsf{A}"],
+    };
+    const emptyChecks = {
+      apiVersion: 1,
+      schemaVersion: 1,
+      profileVersion: 1,
+      projectId,
+      indexGeneration: 1n,
+      diagnostics: [],
+      suppressedCount: 1,
+      incomplete: false,
+    };
+    client.notationDiagnostics = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ...emptyChecks,
+        diagnostics: [finding],
+        suppressedCount: 0,
+      })
+      .mockResolvedValue(emptyChecks);
+    client.notationSuppressions = vi
+      .fn()
+      .mockResolvedValue({ version: 1, items: [] });
+    client.setNotationSuppressions = vi.fn().mockResolvedValue({
+      version: 1,
+      items: [{ conceptId: "adversary", relativePath: "main.tex" }],
+    });
+
+    render(
+      <App client={client} pickDirectory={() => Promise.resolve("/paper")} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open folder" }));
+    expect(
+      await screen.findByText(/exact declared form for Adversary/),
+    ).toBeVisible();
+    fireEvent.click(
+      screen.getByRole("button", { name: /nonPreferredDeclaredForm/ }),
+    );
+    expect(await screen.findByRole("tab", { name: "main.tex" })).toBeVisible();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Suppress in this file" }),
+    );
+    await waitFor(() =>
+      expect(client.setNotationSuppressions).toHaveBeenCalledWith(projectId, {
+        version: 1,
+        items: [{ conceptId: "adversary", relativePath: "main.tex" }],
+      }),
+    );
+    expect(
+      await screen.findByText(
+        "No high-confidence notation inconsistencies found.",
+      ),
+    ).toBeVisible();
+  });
+
   it("inserts the effective preferred notation literally as one undoable change", async () => {
     const projectId = "9".repeat(64);
     const client = conflictClient(
@@ -970,6 +1057,20 @@ function buildMocks() {
     searchCatalog: vi.fn().mockResolvedValue([]),
     notationProfile: vi.fn(),
     notationUsage: vi.fn(),
+    notationDiagnostics: vi.fn().mockResolvedValue({
+      apiVersion: 1,
+      schemaVersion: 1,
+      profileVersion: 1,
+      projectId: "a".repeat(64),
+      indexGeneration: 1n,
+      diagnostics: [],
+      suppressedCount: 0,
+      incomplete: false,
+    }),
+    notationSuppressions: vi.fn().mockResolvedValue({ version: 1, items: [] }),
+    setNotationSuppressions: vi
+      .fn()
+      .mockResolvedValue({ version: 1, items: [] }),
     setGlobalNotationProfile: vi.fn(),
     resetGlobalNotationProfile: vi.fn(),
     setProjectNotationOverrides: vi.fn(),

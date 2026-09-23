@@ -10,8 +10,9 @@ use cryptex_core::{
     index::{ProjectIndex, ScannerLimits, project::ProjectIndexer},
     notation::{
         EffectiveNotationProfile, NotationError, NotationProfile, NotationService,
-        ProjectNotationOverrides,
+        ProjectNotationOverrides, ProjectNotationSuppressions,
     },
+    notation_diagnostics::{ProjectNotationDiagnostics, analyze_notation_consistency},
     notation_usage::{ProjectNotationUsage, scan_project_notation_usage},
     project::{ProjectError, ProjectService},
     recovery::{RecoveryError, RecoveryService},
@@ -192,6 +193,91 @@ pub fn notation_usage(
             .ok()
             .map(|document| (document.text, document.fingerprint))
     }))
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn notation_diagnostics(
+    project_id: String,
+    projects: State<'_, Mutex<ProjectService>>,
+    indexes: State<'_, ProjectIndexes>,
+    notation: State<'_, NotationState>,
+) -> Result<ProjectNotationDiagnostics, ApiError> {
+    let index = indexes
+        .lock()
+        .map_err(|_| internal_error("project index lock is poisoned"))?
+        .get(&project_id)
+        .map(ProjectIndexer::snapshot)
+        .ok_or_else(|| ApiError {
+            api_version: API_VERSION,
+            code: "PROJECT_INDEX_UNAVAILABLE".to_owned(),
+            message: "the project index is not available".to_owned(),
+            retryable: true,
+        })?;
+    let (profile, suppressions) = {
+        let notation = notation
+            .lock()
+            .map_err(|_| internal_error("notation service lock is poisoned"))?;
+        (
+            notation
+                .effective(Some(&project_id))
+                .map_err(notation_error)?,
+            notation.suppressions(&project_id).map_err(notation_error)?,
+        )
+    };
+    let projects = projects
+        .lock()
+        .map_err(|_| internal_error("project service lock is poisoned"))?;
+    projects.require_open(&project_id).map_err(project_error)?;
+    let usage = scan_project_notation_usage(&index, &profile, |path| {
+        projects
+            .read_text_file(&project_id, path)
+            .ok()
+            .map(|document| (document.text, document.fingerprint))
+    });
+    Ok(analyze_notation_consistency(
+        &usage,
+        &profile,
+        &suppressions.items,
+    ))
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn notation_suppressions(
+    project_id: String,
+    projects: State<'_, Mutex<ProjectService>>,
+    notation: State<'_, NotationState>,
+) -> Result<ProjectNotationSuppressions, ApiError> {
+    projects
+        .lock()
+        .map_err(|_| internal_error("project service lock is poisoned"))?
+        .require_open(&project_id)
+        .map_err(project_error)?;
+    notation
+        .lock()
+        .map_err(|_| internal_error("notation service lock is poisoned"))?
+        .suppressions(&project_id)
+        .map_err(notation_error)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn set_notation_suppressions(
+    project_id: String,
+    suppressions: ProjectNotationSuppressions,
+    projects: State<'_, Mutex<ProjectService>>,
+    notation: State<'_, NotationState>,
+) -> Result<ProjectNotationSuppressions, ApiError> {
+    projects
+        .lock()
+        .map_err(|_| internal_error("project service lock is poisoned"))?
+        .require_open(&project_id)
+        .map_err(project_error)?;
+    let mut notation = notation
+        .lock()
+        .map_err(|_| internal_error("notation service lock is poisoned"))?;
+    notation
+        .set_suppressions(&project_id, suppressions)
+        .map_err(notation_error)?;
+    notation.suppressions(&project_id).map_err(notation_error)
 }
 
 #[tauri::command]
