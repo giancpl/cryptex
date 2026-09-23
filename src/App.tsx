@@ -6,6 +6,7 @@ import type { CatalogSearchHit } from "./bindings/CatalogSearchHit";
 import type { CommandContext } from "./bindings/CommandContext";
 import type { Diagnostic } from "./bindings/Diagnostic";
 import type { DiagnosticSeverity } from "./bindings/DiagnosticSeverity";
+import type { EffectiveNotationConcept } from "./bindings/EffectiveNotationConcept";
 import type { FileTreeEntry } from "./bindings/FileTreeEntry";
 import type { FileTreePage } from "./bindings/FileTreePage";
 import type { RecoveryInventory } from "./bindings/RecoveryInventory";
@@ -25,6 +26,7 @@ import { CodeEditor } from "./editor/CodeEditor";
 import { PdfViewer } from "./pdf/PdfViewer";
 import { createLatexEditorState } from "./editor/editorState";
 import { CommandFinder } from "./finder/CommandFinder";
+import { NotationPalette } from "./notation/NotationPalette";
 
 interface OpenDocument {
   path: string;
@@ -90,10 +92,12 @@ export function App({
   >("all");
   const [diagnosticEpoch, setDiagnosticEpoch] = useState<number | null>(null);
   const [finderOpen, setFinderOpen] = useState(false);
+  const [notationOpen, setNotationOpen] = useState(false);
   const [editorInsertion, setEditorInsertion] = useState<{
     path: string;
     request: number;
     snippet: string;
+    literal?: boolean;
   } | null>(null);
   const [editorNavigation, setEditorNavigation] = useState<{
     path: string;
@@ -617,6 +621,14 @@ export function App({
     [client, project],
   );
 
+  const loadNotationProfile = useCallback(
+    () =>
+      project
+        ? client.notationProfile(project.projectId)
+        : Promise.reject(new Error("Open a project to load notation.")),
+    [client, project],
+  );
+
   const acknowledgeCatalogInsertion = useCallback((request: number) => {
     setEditorInsertion((current) =>
       current?.request === request ? null : current,
@@ -631,6 +643,17 @@ export function App({
       snippet: hit.entry.snippet,
     });
     setFinderOpen(false);
+  }
+
+  function insertNotation(concept: EffectiveNotationConcept) {
+    if (!activePath || !documentsRef.current[activePath]) return;
+    setEditorInsertion({
+      path: activePath,
+      request: ++insertionRequestRef.current,
+      snippet: concept.preferredForm,
+      literal: true,
+    });
+    setNotationOpen(false);
   }
 
   async function openProject() {
@@ -667,6 +690,7 @@ export function App({
       setEditorNavigation(null);
       setEditorInsertion(null);
       setFinderOpen(false);
+      setNotationOpen(false);
       setBuildState(null);
       buildOperationRef.current = null;
       buildEpochsRef.current.clear();
@@ -1488,9 +1512,22 @@ export function App({
               <button
                 type="button"
                 title="Command Finder (Ctrl/Cmd+K)"
-                onClick={() => setFinderOpen(true)}
+                onClick={() => {
+                  setNotationOpen(false);
+                  setFinderOpen(true);
+                }}
               >
                 Command Finder
+              </button>
+              <button
+                type="button"
+                title="Insert preferred notation"
+                onClick={() => {
+                  setFinderOpen(false);
+                  setNotationOpen(true);
+                }}
+              >
+                Notation
               </button>
               <button
                 type="button"
@@ -1608,6 +1645,13 @@ export function App({
           onClose={() => setFinderOpen(false)}
           onInsert={insertCatalogCommand}
           search={searchCatalog}
+        />
+      ) : null}
+      {notationOpen && project && activePath ? (
+        <NotationPalette
+          load={loadNotationProfile}
+          onClose={() => setNotationOpen(false)}
+          onInsert={insertNotation}
         />
       ) : null}
     </main>

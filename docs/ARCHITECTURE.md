@@ -232,3 +232,12 @@ winning source per concept. Profiles contain only declared literal LaTeX forms; 
 not claim mathematical equivalence. Rust validates and atomically persists the bounded,
 versioned store. Import/export transfers validated profile JSON as content and never
 reads or writes a frontend-supplied filesystem path.
+
+## Notation palette
+
+I2 loads the effective I1 profile for the open project and performs bounded local
+filtering over concept labels, identifiers, and declared forms. The palette displays
+the preferred exact form and its default/global/project provenance. Insertion requires
+an explicit user action and dispatches one CodeMirror transaction. It uses a literal
+insertion path separate from catalog snippet expansion, so notation text is never
+interpreted as a placeholder language.

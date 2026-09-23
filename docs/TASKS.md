@@ -111,7 +111,9 @@
 - I1: implemented with a versioned external profile, curated cryptography defaults,
   explicit literal forms, global and per-project precedence, atomic persistence, strict
   validation, provenance, and JSON import/export.
-- Next: I2 notation palette and explicit insertion.
+- I2: implemented with a searchable keyboard-accessible palette, exact preferred-form
+  display, override provenance, literal insertion, and single-step undo.
+- Next: I3 high-confidence notation usage scanner.
 
 The authoritative sequence is:
 

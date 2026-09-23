@@ -37,3 +37,12 @@ identifiers/forms, empty or oversized values, and ambiguous forms are rejected
 explicitly. Export returns the active global profile, or the defaults when no global
 profile is configured. UI file selection is deferred to I2 and must pass content—not
 a filesystem path—across the backend boundary.
+
+## Palette and insertion
+
+The I2 palette searches the effective profile by concept ID, label, preferred form,
+and declared exact forms. It shows whether each preference comes from the bundled
+default, global profile, or project override. Selecting **Insert preferred form**
+replaces the current editor selection with the exact preferred string in one undoable
+CodeMirror transaction. Palette insertion does not interpret snippet placeholders and
+does not modify profiles, preambles, packages, or other files.

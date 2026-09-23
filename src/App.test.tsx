@@ -768,6 +768,53 @@ describe("App", () => {
       expect(client.cleanBuildArtifacts).toHaveBeenCalledWith(projectId),
     );
   });
+  it("inserts the effective preferred notation literally as one undoable change", async () => {
+    const projectId = "9".repeat(64);
+    const client = conflictClient(
+      projectId,
+      vi.fn().mockResolvedValue({
+        apiVersion: 1,
+        relativePath: "main.tex",
+        text: "base",
+        fingerprint: "1".repeat(64),
+        sizeBytes: 4,
+      }),
+      () => undefined,
+    );
+    client.notationProfile = vi.fn().mockResolvedValue({
+      apiVersion: 1,
+      profileVersion: 1,
+      name: "Project notation",
+      projectId,
+      concepts: [
+        {
+          id: "adversary",
+          label: "Adversary",
+          preferredForm: "\\Adv$0",
+          declaredForms: ["\\Adv$0"],
+          source: "project",
+        },
+      ],
+    });
+
+    render(
+      <App client={client} pickDirectory={() => Promise.resolve("/paper")} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open folder" }));
+    fireEvent.click(await screen.findByRole("button", { name: /main\.tex/ }));
+    await screen.findByRole("tab", { name: "main.tex" });
+    fireEvent.click(screen.getByRole("button", { name: "Notation" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Insert preferred form" }),
+    );
+
+    const content = document.querySelector<HTMLElement>(".cm-content");
+    await waitFor(() => expect(content).toHaveTextContent("\\Adv$0base"));
+    if (!content) return;
+    fireEvent.keyDown(content, { key: "z", ctrlKey: true });
+    await waitFor(() => expect(content).toHaveTextContent("base"));
+  });
+
   it("inserts a catalog snippet as one undoable editor change", async () => {
     const projectId = "8".repeat(64);
     const client = conflictClient(

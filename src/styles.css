@@ -732,6 +732,30 @@ input {
   margin-top: auto;
   padding: 7px 18px;
 }
+.notation-search {
+  grid-template-columns: 1fr;
+}
+.notation-forms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.notation-forms > span {
+  color: #82909f;
+  flex-basis: 100%;
+  font-size: 0.75rem;
+}
+.notation-forms code {
+  background: #090c0f;
+  border: 1px solid #2b343e;
+  border-radius: 3px;
+  color: #d6b879;
+  padding: 4px 6px;
+}
+.palette-message {
+  color: #b7c0c9;
+  padding: 12px 16px;
+}
 @media (max-width: 850px) {
   .finder-body {
     grid-template-columns: 1fr;

@@ -17,7 +17,8 @@ export function CodeEditor({
   diagnostics?: readonly DiagnosticMarker[];
   navigation?:
     { line: number; column: number | null; request: number } | undefined;
-  insertion?: { request: number; snippet: string } | undefined;
+  insertion?:
+    { request: number; snippet: string; literal?: boolean } | undefined;
   onInsertionApplied?: (request: number) => void;
   catalogSearch?: CatalogLookup;
 }) {
@@ -76,10 +77,16 @@ export function CodeEditor({
     const editor = view.current;
     if (!editor || !insertion) return;
     const selection = editor.state.selection.main;
-    const expanded = expandCatalogSnippet(
-      insertion.snippet,
-      editor.state.sliceDoc(selection.from, selection.to),
-    );
+    const expanded = insertion.literal
+      ? {
+          text: insertion.snippet,
+          selectionFrom: insertion.snippet.length,
+          selectionTo: insertion.snippet.length,
+        }
+      : expandCatalogSnippet(
+          insertion.snippet,
+          editor.state.sliceDoc(selection.from, selection.to),
+        );
     editor.dispatch({
       changes: {
         from: selection.from,
