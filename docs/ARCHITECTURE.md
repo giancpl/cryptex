@@ -193,3 +193,12 @@ cryptocode 0.44 pseudocode, control-flow, sampling, assignment, and protocol-mes
 constructs. Each package entry names exactly cryptocode 0.44 and links to the CTAN
 manual; representative snippets are compiled by the isolated TeX Live fixture runner.
 Catalog loading fails closed if the bundled JSON stops matching the H1 contract.
+
+## Catalog search and ranking
+
+H3 keeps search in the Rust core and offline. It normalizes case and Unicode letters,
+ranks command, ID, display-name, concept, synonym, signature, and summary evidence with
+fixed weights, then applies explicit context and detected-package boosts. Exact matches
+precede prefixes and bounded Levenshtein fuzzy matches; score, match kind, and stable
+entry ID define total ordering. Queries, result counts, and package names are bounded.
+The project context is derived only from package records already extracted by G3.

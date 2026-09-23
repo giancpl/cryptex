@@ -99,7 +99,10 @@
 - H2: implemented with a bundled validated baseline of common LaTeX and cryptocode
   0.44 commands, primary-documentation provenance, exact package-version requirements,
   and representative compilation in the isolated toolchain fixture runner.
-- Next: H3 local search and contextual ranking.
+- H3: implemented with normalized exact/prefix/bounded-fuzzy search, deterministic
+  score and ID tie-breaking, editor-context and indexed-package boosts, bounded inputs,
+  golden ranking queries, Unicode coverage, and an interactive performance budget.
+- Next: H4 Finder UI and safe insertion.
 
 The authoritative sequence is:
 

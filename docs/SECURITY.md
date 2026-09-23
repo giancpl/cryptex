@@ -43,7 +43,7 @@ execution or macro expansion. G3 canonicalizes discovered files beneath the proj
 root, tracks canonical directories to stop symlink loops, and publishes full rescans
 only after bounded cancellable work completes. G4 exposes only index DTO snapshots;
 navigation still rereads a backend-validated project-relative file rather than trusting
-a frontend or index path. H1-H2 treat catalog data as inert bundled content, bound its size, validate snippet structure and package identifiers, require HTTPS provenance, and fail loading if bundled data is invalid. Representative snippets compile only inside the existing restricted fixture harness; runtime catalog loading performs no execution or automatic package editing.
+a frontend or index path. H1-H2 treat catalog data as inert bundled content, bound its size, validate snippet structure and package identifiers, require HTTPS provenance, and fail loading if bundled data is invalid. Representative snippets compile only inside the existing restricted fixture harness; runtime catalog loading performs no execution or automatic package editing. H3 bounds query bytes and result counts, validates package names, and uses only inert catalog/index strings; fuzzy matching has a maximum edit distance and cannot trigger filesystem, network, or process work.
 
 Restricted TeX is not a proven sandbox. OS sandboxing is a release investigation,
 not a reason to weaken the controls above.
