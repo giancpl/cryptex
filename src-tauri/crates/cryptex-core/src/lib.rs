@@ -2,6 +2,7 @@ pub mod api;
 pub mod build;
 pub mod compiler;
 pub mod diagnostics;
+pub mod index;
 pub mod process;
 pub mod project;
 pub mod toolchain;

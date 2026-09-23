@@ -46,4 +46,5 @@ logs, visible build state, cancellation, cache-confined cleanup, and conservativ
 structured log diagnostics, a filterable Problems panel, inline source markers, and
 raw-log review, a secure local PDF.js preview with navigation, zoom, and search,
 race-safe retention of the last successful PDF, and bidirectional SyncTeX navigation
-between source and preview. Project intelligence (G1) is next. No production release exists.
+between source and preview. The bounded best-effort project-index contract is frozen;
+tolerant per-file extraction (G2) is next. No production release exists.

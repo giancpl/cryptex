@@ -139,3 +139,13 @@ currently retained build. Rust bounds and parses the result, canonicalizes the r
 source immediately before use, and requires a regular file contained by the canonical
 project root. Only then does React receive a project-relative path and line/column; stale
 responses are discarded before navigation.
+
+## Project index contract
+
+G1 defines a versioned, rebuildable, best-effort index DTO for files, sections, labels,
+references, citations, environments, macros, includes, packages, and `cryptocode`
+constructs. Every record carries a source range, confidence, and lexical/recovery
+provenance; file status and issues expose incomplete scans. Serialized scanner limits
+bound project files, total/per-file bytes, records, brace depth, and command length.
+See [Project index schema](PROJECT_INDEX.md). The contract deliberately cannot assert
+complete TeX semantics.

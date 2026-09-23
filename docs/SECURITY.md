@@ -36,6 +36,8 @@ in-project source path and the currently retained operation, executes only the v
 managed `synctex` binary through the restricted supervisor, bounds time/output, and
 rejects non-finite or malformed coordinates before they reach the viewer. F6 also canonicalizes inverse results immediately before use and rejects any source
 that is not a regular file contained by the project root, including escaping symlinks.
+G1 makes index limits part of the typed schema and applies the existing traversal-safe
+project-relative path contract to indexed files and issues.
 
 Restricted TeX is not a proven sandbox. OS sandboxing is a release investigation,
 not a reason to weaken the controls above.

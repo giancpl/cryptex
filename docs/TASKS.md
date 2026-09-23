@@ -81,7 +81,10 @@
 - F6: implemented with PDF-coordinate inverse queries, bounded output parsing,
   canonical project-contained source validation, stale-result suppression, and editor
   line/column navigation.
-- Next: G1 project-index schema and scanner limits.
+- G1: implemented with a versioned best-effort schema, source ranges, explicit
+  confidence/provenance, partial/skipped file states, structured issues, safe relative
+  paths, fingerprints, and serialized scanner limits.
+- Next: G2 tolerant per-file extraction.
 
 The authoritative sequence is:
 
@@ -96,6 +99,6 @@ The authoritative sequence is:
 9. B3 fingerprinted reads and atomic writes.
 10. C1 CodeMirror and document tabs.
 
-Continue with G1-G4, H1-H5, I1-I5, and J1-J6 in
+Continue with G2-G4, H1-H5, I1-I5, and J1-J6 in
 dependency order. M8-M10 remain blocked until J6. Each task is an independently
 reviewable change with tests and the global acceptance rules.
