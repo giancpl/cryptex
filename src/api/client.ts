@@ -14,6 +14,9 @@ import type { ForwardSynctexRequest } from "../bindings/ForwardSynctexRequest";
 import type { HealthResponse } from "../bindings/HealthResponse";
 import type { InverseSynctexRequest } from "../bindings/InverseSynctexRequest";
 import type { LatexEngine } from "../bindings/LatexEngine";
+import type { EffectiveNotationProfile } from "../bindings/EffectiveNotationProfile";
+import type { NotationProfile } from "../bindings/NotationProfile";
+import type { ProjectNotationOverrides } from "../bindings/ProjectNotationOverrides";
 import type { RecoveryInventory } from "../bindings/RecoveryInventory";
 import type { RecoverySnapshot } from "../bindings/RecoverySnapshot";
 import type { RootDocumentCandidates } from "../bindings/RootDocumentCandidates";
@@ -39,6 +42,15 @@ export interface BackendClient {
     context: CommandContext | null,
     limit: number,
   ): Promise<CatalogSearchHit[]>;
+  notationProfile(projectId: string): Promise<EffectiveNotationProfile>;
+  setGlobalNotationProfile(profile: NotationProfile): Promise<void>;
+  resetGlobalNotationProfile(): Promise<void>;
+  setProjectNotationOverrides(
+    projectId: string,
+    overrides: ProjectNotationOverrides,
+  ): Promise<EffectiveNotationProfile>;
+  importNotationProfile(json: string): Promise<NotationProfile>;
+  exportNotationProfile(): Promise<string>;
   readTextFile(projectId: string, relativePath: string): Promise<TextDocument>;
   writeTextFile(
     this: void,
@@ -149,6 +161,20 @@ export const backendClient: BackendClient = {
       context,
       limit,
     }),
+  notationProfile: (projectId) =>
+    invoke<EffectiveNotationProfile>("notation_profile", { projectId }),
+  setGlobalNotationProfile: (profile) =>
+    invoke<void>("set_global_notation_profile", { profile }),
+  resetGlobalNotationProfile: () =>
+    invoke<void>("reset_global_notation_profile"),
+  setProjectNotationOverrides: (projectId, overrides) =>
+    invoke<EffectiveNotationProfile>("set_project_notation_overrides", {
+      projectId,
+      overrides,
+    }),
+  importNotationProfile: (json) =>
+    invoke<NotationProfile>("import_notation_profile", { json }),
+  exportNotationProfile: () => invoke<string>("export_notation_profile"),
   readTextFile: (projectId, relativePath) =>
     invoke<TextDocument>("read_text_file", { projectId, relativePath }),
   writeTextFile: (projectId, relativePath, text, expectedFingerprint) =>

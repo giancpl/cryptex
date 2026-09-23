@@ -921,6 +921,12 @@ function rootCandidates(projectId: string) {
 function buildMocks() {
   return {
     searchCatalog: vi.fn().mockResolvedValue([]),
+    notationProfile: vi.fn(),
+    setGlobalNotationProfile: vi.fn(),
+    resetGlobalNotationProfile: vi.fn(),
+    setProjectNotationOverrides: vi.fn(),
+    importNotationProfile: vi.fn(),
+    exportNotationProfile: vi.fn(),
     projectIndex: vi.fn().mockResolvedValue({
       apiVersion: 1,
       schemaVersion: 1,

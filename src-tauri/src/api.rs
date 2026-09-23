@@ -8,6 +8,10 @@ use cryptex_core::{
     catalog::{CommandCatalog, CommandContext},
     catalog_search::{CatalogSearchError, CatalogSearchHit, CatalogSearchQuery},
     index::{ProjectIndex, ScannerLimits, project::ProjectIndexer},
+    notation::{
+        EffectiveNotationProfile, NotationError, NotationProfile, NotationService,
+        ProjectNotationOverrides,
+    },
     project::{ProjectError, ProjectService},
     recovery::{RecoveryError, RecoveryService},
     settings::{EnginePreferences, RootPreferences, SettingsError},
@@ -27,6 +31,7 @@ pub type ProjectIndexes = Arc<Mutex<HashMap<String, ProjectIndexer>>>;
 pub type RootPreferenceState = Mutex<RootPreferences>;
 pub type EnginePreferenceState = Mutex<EnginePreferences>;
 pub type TrustState = Mutex<TrustService>;
+pub type NotationState = Mutex<NotationService>;
 
 #[tauri::command]
 pub fn health() -> HealthResponse {
@@ -133,6 +138,89 @@ pub fn search_command_catalog(
     })?;
     let request = CatalogSearchQuery::from_project_index(query, context, limit, index);
     catalog.search(&request).map_err(catalog_search_error)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn notation_profile(
+    project_id: String,
+    projects: State<'_, Mutex<ProjectService>>,
+    notation: State<'_, NotationState>,
+) -> Result<EffectiveNotationProfile, ApiError> {
+    projects
+        .lock()
+        .map_err(|_| internal_error("project service lock is poisoned"))?
+        .require_open(&project_id)
+        .map_err(project_error)?;
+    notation
+        .lock()
+        .map_err(|_| internal_error("notation service lock is poisoned"))?
+        .effective(Some(&project_id))
+        .map_err(notation_error)
+}
+
+#[tauri::command]
+pub fn set_global_notation_profile(
+    profile: NotationProfile,
+    notation: State<'_, NotationState>,
+) -> Result<(), ApiError> {
+    notation
+        .lock()
+        .map_err(|_| internal_error("notation service lock is poisoned"))?
+        .set_global(profile)
+        .map_err(notation_error)
+}
+
+#[tauri::command]
+pub fn reset_global_notation_profile(notation: State<'_, NotationState>) -> Result<(), ApiError> {
+    notation
+        .lock()
+        .map_err(|_| internal_error("notation service lock is poisoned"))?
+        .reset_global()
+        .map_err(notation_error)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn set_project_notation_overrides(
+    project_id: String,
+    overrides: ProjectNotationOverrides,
+    projects: State<'_, Mutex<ProjectService>>,
+    notation: State<'_, NotationState>,
+) -> Result<EffectiveNotationProfile, ApiError> {
+    projects
+        .lock()
+        .map_err(|_| internal_error("project service lock is poisoned"))?
+        .require_open(&project_id)
+        .map_err(project_error)?;
+    let mut notation = notation
+        .lock()
+        .map_err(|_| internal_error("notation service lock is poisoned"))?;
+    notation
+        .set_project_overrides(&project_id, overrides)
+        .map_err(notation_error)?;
+    notation
+        .effective(Some(&project_id))
+        .map_err(notation_error)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn import_notation_profile(
+    json: String,
+    notation: State<'_, NotationState>,
+) -> Result<NotationProfile, ApiError> {
+    notation
+        .lock()
+        .map_err(|_| internal_error("notation service lock is poisoned"))?
+        .import_global(&json)
+        .map_err(notation_error)
+}
+
+#[tauri::command]
+pub fn export_notation_profile(notation: State<'_, NotationState>) -> Result<String, ApiError> {
+    notation
+        .lock()
+        .map_err(|_| internal_error("notation service lock is poisoned"))?
+        .export_global()
+        .map_err(notation_error)
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -426,6 +514,16 @@ fn catalog_search_error(error: CatalogSearchError) -> ApiError {
         code: "INVALID_CATALOG_SEARCH".to_owned(),
         message: error.to_string(),
         retryable: false,
+    }
+}
+
+fn notation_error(error: NotationError) -> ApiError {
+    let retryable = matches!(&error, NotationError::Io(_));
+    ApiError {
+        api_version: API_VERSION,
+        code: "NOTATION_PROFILE_ERROR".to_owned(),
+        message: error.to_string(),
+        retryable,
     }
 }
 

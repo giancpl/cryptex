@@ -5,6 +5,7 @@ pub mod catalog_search;
 pub mod compiler;
 pub mod diagnostics;
 pub mod index;
+pub mod notation;
 pub mod process;
 pub mod project;
 pub mod toolchain;

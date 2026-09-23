@@ -3,6 +3,7 @@ mod builds;
 
 use cryptex_core::{
     catalog::CommandCatalog,
+    notation::NotationService,
     project::ProjectService,
     recovery::RecoveryService,
     settings::{EnginePreferences, RootPreferences},
@@ -29,6 +30,9 @@ pub fn run() {
             app.manage(Mutex::new(TrustService::load(
                 app.path().app_config_dir()?.join("project-trust.json"),
             )?));
+            app.manage(Mutex::new(NotationService::load(
+                app.path().app_config_dir()?.join("notation-profiles.json"),
+            )?));
             app.manage(RecoveryService::new(
                 app.path().app_data_dir()?.join("recovery"),
             ));
@@ -46,6 +50,12 @@ pub fn run() {
             api::open_project,
             api::project_index,
             api::search_command_catalog,
+            api::notation_profile,
+            api::set_global_notation_profile,
+            api::reset_global_notation_profile,
+            api::set_project_notation_overrides,
+            api::import_notation_profile,
+            api::export_notation_profile,
             api::list_directory,
             api::read_text_file,
             api::write_text_file,

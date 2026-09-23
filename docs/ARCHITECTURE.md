@@ -222,3 +222,13 @@ requirements, and provenance without changing text. A bounded lexical context de
 selects preamble, text, or math ranking and suppresses assistance in comments, inline
 verb, and recognized verbatim environments when confidently detected. Async failures
 degrade to no assistance and stale signature responses are discarded.
+
+## Notation profiles
+
+I1 stores one optional global profile and project-scoped overrides in the platform
+configuration directory, keyed by canonical project identity. Effective preferences
+follow project override, global profile, then bundled default precedence and expose the
+winning source per concept. Profiles contain only declared literal LaTeX forms; they do
+not claim mathematical equivalence. Rust validates and atomically persists the bounded,
+versioned store. Import/export transfers validated profile JSON as content and never
+reads or writes a frontend-supplied filesystem path.

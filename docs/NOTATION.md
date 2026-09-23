@@ -1,10 +1,39 @@
-# Notation
+# Notation profiles
 
-Versioned user profiles map predefined cryptographic concepts to exact preferred
-LaTeX forms. Project overrides are stored outside project folders and can be
-imported/exported.
+CrypTex notation profiles are versioned JSON data stored outside LaTeX projects. They
+list literal LaTeX spellings that the user has explicitly declared for a concept; they
+do not encode or infer mathematical equivalence.
 
-V0.1 recognizes only declared exact forms outside confidently identified comments
-and verbatim regions. Ambiguous constructs are omitted. Findings are informational
-or warnings and make no mathematical claims. Refactors require a reviewed diff,
-explicit acceptance, and fresh file fingerprints.
+## Version 1
+
+A profile contains `version`, `name`, and a nonempty `concepts` array. Every concept
+contains a stable lowercase-hyphenated `id`, a display `label`, one `preferredForm`,
+and one or more unique `declaredForms`. The preferred form must occur exactly in the
+declared forms. A literal form may belong to only one concept, avoiding ambiguous
+scanner evidence.
+
+Bundled defaults currently cover the security parameter, adversary, challenger,
+negligible function, and probability. They are ordinary configurable defaults, not
+mathematical assertions.
+
+Project overrides contain `version` and concept records with `conceptId`,
+`preferredForm`, and `declaredForms`. They may override only concepts in the current
+global/default profile. Effective precedence is:
+
+1. project override keyed by canonical project identity;
+2. global user profile;
+3. bundled CrypTex defaults.
+
+The effective DTO reports `default`, `global`, or `project` provenance for each
+concept. Settings live in `notation-profiles.json` in the application configuration
+directory and are replaced atomically with restrictive directory permissions. No
+file is added to a project.
+
+## Import and export
+
+Import accepts bounded JSON content and validates it before replacing the global
+profile. Unknown fields, unsupported versions, unknown override concepts, duplicate
+identifiers/forms, empty or oversized values, and ambiguous forms are rejected
+explicitly. Export returns the active global profile, or the defaults when no global
+profile is configured. UI file selection is deferred to I2 and must pass content—not
+a filesystem path—across the backend boundary.

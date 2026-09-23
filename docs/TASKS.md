@@ -108,7 +108,10 @@
 - H5: implemented with native CodeMirror catalog completion and snippet fields,
   command hover, debounced signature help, context ranking, requirements/provenance,
   stale-result suppression, and conservative comment/verbatim exclusion.
-- Next: I1 notation profile and defaults.
+- I1: implemented with a versioned external profile, curated cryptography defaults,
+  explicit literal forms, global and per-project precedence, atomic persistence, strict
+  validation, provenance, and JSON import/export.
+- Next: I2 notation palette and explicit insertion.
 
 The authoritative sequence is:
 
