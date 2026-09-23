@@ -93,7 +93,10 @@
 - G4: implemented with backend-owned live snapshots, watcher-driven refresh, a
   collapsible outline, duplicate candidates, conservative missing-label indicators,
   and validated source-range navigation.
-- Next: H1 versioned command-catalog schema.
+- H1: implemented with a versioned typed schema, stable IDs, concepts/synonyms,
+  package/version requirements, contexts, snippets/examples, HTTPS provenance,
+  contribution rules, and duplicate/malformed-entry validation.
+- Next: H2 curated LaTeX and cryptocode catalog.
 
 The authoritative sequence is:
 
@@ -108,6 +111,6 @@ The authoritative sequence is:
 9. B3 fingerprinted reads and atomic writes.
 10. C1 CodeMirror and document tabs.
 
-Continue with H1-H5, I1-I5, and J1-J6 in
+Continue with H2-H5, I1-I5, and J1-J6 in
 dependency order. M8-M10 remain blocked until J6. Each task is an independently
 reviewable change with tests and the global acceptance rules.

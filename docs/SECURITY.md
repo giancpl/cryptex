@@ -43,7 +43,9 @@ execution or macro expansion. G3 canonicalizes discovered files beneath the proj
 root, tracks canonical directories to stop symlink loops, and publishes full rescans
 only after bounded cancellable work completes. G4 exposes only index DTO snapshots;
 navigation still rereads a backend-validated project-relative file rather than trusting
-a frontend or index path.
+a frontend or index path. H1 treats catalog data as inert bundled content, bounds its
+size, validates snippet structure and package identifiers, and requires HTTPS provenance;
+it exposes no execution or automatic package-editing behavior.
 
 Restricted TeX is not a proven sandbox. OS sandboxing is a release investigation,
 not a reason to weaken the controls above.

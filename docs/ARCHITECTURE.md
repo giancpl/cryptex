@@ -179,3 +179,12 @@ typed read-only command returns snapshots; the frontend cannot supply paths to i
 The collapsible outline lists validated indexed ranges, keeps ambiguous definitions as
 separate candidates, marks references whose label target is absent, and opens the chosen
 file/range through the existing validated file command.
+
+## Command catalog contract
+
+H1 defines a versioned, bundled catalog DTO with stable IDs, literal commands, concepts,
+synonyms, package/version requirements, signatures, validated snippets, examples,
+contexts, HTTPS documentation, and source/version provenance. Validation rejects
+duplicate IDs and command variants, malformed placeholders, invalid package names,
+insecure links, and incomplete evidence. See [Command catalog](COMMAND_CATALOG.md).
+No catalog entry is curated until H2.
