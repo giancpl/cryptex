@@ -1,0 +1,229 @@
+{
+  "schemaVersion": 1,
+  "description": "CrypTex V0.1 acceptance fixture matrix",
+  "fixtures": [
+    {
+      "id": "minimal",
+      "root": "main.tex",
+      "mode": "compile",
+      "requiredFiles": [],
+      "engine": "pdf",
+      "expectedArtifacts": ["main.tex.pdf", "main.tex.synctex.gz"]
+    },
+    {
+      "id": "multipass",
+      "root": "main.tex",
+      "mode": "compile",
+      "requiredFiles": [],
+      "engine": "pdf",
+      "expectedArtifacts": ["main.tex.pdf", "main.tex.synctex.gz"]
+    },
+    {
+      "id": "bibtex",
+      "root": "main.tex",
+      "mode": "compile",
+      "requiredFiles": ["references.bib"],
+      "engine": "pdf",
+      "expectedArtifacts": ["main.tex.pdf", "main.tex.synctex.gz"]
+    },
+    {
+      "id": "biber",
+      "root": "main.tex",
+      "mode": "compile",
+      "requiredFiles": ["references.bib"],
+      "engine": "pdf",
+      "expectedArtifacts": ["main.tex.pdf", "main.tex.synctex.gz"]
+    },
+    {
+      "id": "cryptocode",
+      "root": "main.tex",
+      "mode": "compile",
+      "requiredFiles": [],
+      "engine": "pdf",
+      "expectedArtifacts": ["main.tex.pdf", "main.tex.synctex.gz"]
+    },
+    {
+      "id": "tikz",
+      "root": "main.tex",
+      "mode": "compile",
+      "requiredFiles": [],
+      "engine": "pdf",
+      "expectedArtifacts": ["main.tex.pdf", "main.tex.synctex.gz"]
+    },
+    {
+      "id": "custom-sty",
+      "root": "main.tex",
+      "mode": "compile",
+      "requiredFiles": ["localcrypto.sty"],
+      "engine": "pdf",
+      "expectedArtifacts": ["main.tex.pdf", "main.tex.synctex.gz"]
+    },
+    {
+      "id": "xelatex",
+      "root": "main.tex",
+      "mode": "compile",
+      "requiredFiles": [],
+      "engine": "xelatex",
+      "expectedArtifacts": ["main.tex.pdf", "main.tex.synctex.gz"]
+    },
+    {
+      "id": "lualatex",
+      "root": "main.tex",
+      "mode": "compile",
+      "requiredFiles": [],
+      "engine": "lualatex",
+      "expectedArtifacts": ["main.tex.pdf", "main.tex.synctex.gz"]
+    },
+    {
+      "id": "subfiles",
+      "root": "main.tex",
+      "mode": "compile",
+      "requiredFiles": ["chapter.tex"],
+      "engine": "pdf",
+      "expectedArtifacts": ["main.tex.pdf", "main.tex.synctex.gz"]
+    },
+    {
+      "id": "magic-root",
+      "root": "main.tex",
+      "mode": "compile",
+      "requiredFiles": ["chapter.tex"],
+      "engine": "pdf",
+      "expectedArtifacts": ["main.tex.pdf", "main.tex.synctex.gz"]
+    },
+    {
+      "id": "multi-root",
+      "root": "alpha.tex",
+      "mode": "static",
+      "requiredFiles": ["beta.tex"]
+    },
+    {
+      "id": "broken-command",
+      "root": "main.tex",
+      "mode": "expectedFailure",
+      "requiredFiles": [],
+      "engine": "pdf",
+      "expectedArtifacts": ["main.tex.pdf", "main.tex.synctex.gz"],
+      "expectedLog": "Undefined control sequence"
+    },
+    {
+      "id": "broken-reference",
+      "root": "main.tex",
+      "mode": "compile",
+      "requiredFiles": [],
+      "engine": "pdf",
+      "expectedArtifacts": ["main.tex.pdf", "main.tex.synctex.gz"]
+    },
+    {
+      "id": "broken-citation",
+      "root": "main.tex",
+      "mode": "compile",
+      "requiredFiles": [],
+      "engine": "pdf",
+      "expectedArtifacts": ["main.tex.pdf", "main.tex.synctex.gz"]
+    },
+    {
+      "id": "malformed-log",
+      "root": "sample.log",
+      "mode": "static",
+      "requiredFiles": []
+    },
+    {
+      "id": "latexmkrc-safe",
+      "root": "main.tex",
+      "mode": "static",
+      "requiredFiles": [".latexmkrc"]
+    },
+    {
+      "id": "latexmkrc-exec",
+      "root": "main.tex",
+      "mode": "static",
+      "requiredFiles": [".latexmkrc"]
+    },
+    {
+      "id": "shell-escape",
+      "root": "main.tex",
+      "mode": "static",
+      "requiredFiles": []
+    },
+    {
+      "id": "symlink-inside",
+      "root": "main.tex",
+      "mode": "static",
+      "requiredFiles": ["scenario.json", "chapter.tex"]
+    },
+    {
+      "id": "symlink-outside",
+      "root": "main.tex",
+      "mode": "static",
+      "requiredFiles": ["scenario.json"]
+    },
+    {
+      "id": "symlink-loop",
+      "root": "main.tex",
+      "mode": "static",
+      "requiredFiles": ["scenario.json"]
+    },
+    {
+      "id": "external-edit",
+      "root": "main.tex",
+      "mode": "static",
+      "requiredFiles": ["external.tex"]
+    },
+    {
+      "id": "large-project",
+      "root": "main.tex",
+      "mode": "static",
+      "requiredFiles": ["scenario.json", "chapters/one.tex", "chapters/two.tex"]
+    },
+    {
+      "id": "unicode-paths",
+      "root": "documento-π.tex",
+      "mode": "static",
+      "requiredFiles": []
+    },
+    {
+      "id": "non-utf8",
+      "root": "invalid.tex",
+      "mode": "static",
+      "requiredFiles": []
+    },
+    {
+      "id": "binary-file",
+      "root": "image.bin",
+      "mode": "static",
+      "requiredFiles": []
+    },
+    {
+      "id": "malformed-pdf",
+      "root": "broken.pdf",
+      "mode": "static",
+      "requiredFiles": []
+    },
+    {
+      "id": "large-pdf",
+      "root": "large.pdf",
+      "mode": "static",
+      "requiredFiles": []
+    },
+    {
+      "id": "overleaf-portable",
+      "root": "main.tex",
+      "mode": "compile",
+      "requiredFiles": [],
+      "engine": "pdf",
+      "expectedArtifacts": ["main.tex.pdf", "main.tex.synctex.gz"]
+    },
+    {
+      "id": "notation-positive",
+      "root": "main.tex",
+      "mode": "static",
+      "requiredFiles": []
+    },
+    {
+      "id": "notation-negative",
+      "root": "main.tex",
+      "mode": "static",
+      "requiredFiles": []
+    }
+  ]
+}

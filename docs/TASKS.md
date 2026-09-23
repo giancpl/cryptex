@@ -120,7 +120,8 @@
   source navigation, incomplete-result disclosure, and validated project/file
   suppressions stored outside source trees.
 - I5: implemented with exact indexed edit enumeration, per-file before/after review, explicit file selection, apply-time fingerprint revalidation, atomic per-file writes, and recoverable changed/failed results.
-- Next: J1 fixture and acceptance harness.
+- J1: implemented with the complete manifest-driven fixture matrix, isolated explicit-toolchain compilation, semantic artifact/log expectations, and harness mutation tests.
+- Next: J2 filesystem and recovery adversarial suite.
 
 The authoritative sequence is:
 

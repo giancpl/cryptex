@@ -31,6 +31,7 @@ jobs:
         run: git diff --exit-code -- src/bindings
       - run: pnpm check
       - run: pnpm test
+      - run: pnpm acceptance:validate
       - run: pnpm rust:test
       - name: Run desktop Clippy
         run: pnpm desktop:lint 2>&1 | tee desktop-clippy.log
