@@ -44,6 +44,6 @@ execution, explicit build permissions, deterministic root/engine resolution, and
 `latexmk` request construction, deterministic scheduling, supervised builds, streamed
 logs, visible build state, cancellation, cache-confined cleanup, and conservative
 structured log diagnostics, a filterable Problems panel, inline source markers, and
-raw-log review, and a secure local PDF.js preview with navigation, zoom, and search.
-Last-successful PDF refresh and race handling (F4) are next. No production release
-exists.
+raw-log review, a secure local PDF.js preview with navigation, zoom, and search,
+and race-safe retention of the last successful PDF. Forward SyncTeX search (F5) is
+next. No production release exists.

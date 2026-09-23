@@ -292,11 +292,13 @@ pub fn read_build_pdf(
         ));
     }
     let path = artifact.path.clone();
-    drop(state);
+    // Keep the registry lock until the immutable snapshot is open and read so a
+    // newer publication cannot retire it midway through this response.
     let bytes = runtime
         .request_builder
         .read_bounded_artifact(&path, MAX_PDF_BYTES)
         .map_err(|error| api_error("BUILD_PDF_READ_ERROR", error.to_string(), false))?;
+    drop(state);
     Ok(Response::new(bytes))
 }
 
@@ -421,17 +423,33 @@ fn run_build(app: AppHandle, build: ScheduledBuild<ExecutableBuild>) {
         return;
     };
     if publish_result && phase == BuildPhase::Succeeded {
-        state
-            .last_success
-            .insert(project_id.clone(), operation_id.clone());
-        if let Some(path) = validated_pdf {
-            state.pdfs.insert(
+        let retained = validated_pdf.and_then(|path| {
+            runtime
+                .request_builder
+                .retain_pdf_artifact(&path, &project_id, &operation_id.0, MAX_PDF_BYTES)
+                .ok()
+        });
+        if let Some(path) = retained {
+            state
+                .last_success
+                .insert(project_id.clone(), operation_id.clone());
+            let previous = state.pdfs.insert(
                 project_id.clone(),
                 PdfArtifact {
                     operation_id: operation_id.clone(),
-                    path,
+                    path: path.clone(),
                 },
             );
+            if let Some(previous) = previous
+                && previous.path != path
+            {
+                let _ = std::fs::remove_file(previous.path);
+            }
+        } else {
+            phase = BuildPhase::Failed;
+            pdf_available = false;
+            message =
+                Some("latexmk exited successfully but its PDF could not be published".to_owned());
         }
     }
     if publish_result {

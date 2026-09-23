@@ -8,7 +8,14 @@ import {
 import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import type { BackendClient } from "./api/client";
+import type { BuildState } from "./bindings/BuildState";
 import type { ProjectFileChange } from "./bindings/ProjectFileChange";
+
+vi.mock("./pdf/PdfViewer", () => ({
+  PdfViewer: ({ operationId }: { operationId: string }) => (
+    <div data-testid="pdf-preview">{operationId}</div>
+  ),
+}));
 
 describe("App", () => {
   it("renders the minimal Project, Editor, and PDF workspace", () => {
@@ -340,6 +347,88 @@ describe("App", () => {
     );
   });
 
+  it("keeps the last successful PDF and ignores stale refresh responses", async () => {
+    const projectId = "8".repeat(64);
+    const client = conflictClient(projectId, vi.fn(), () => undefined);
+    let emitBuild: ((state: BuildState) => void) | undefined;
+    const onBuildState = vi
+      .fn()
+      .mockImplementation((listener: (state: BuildState) => void) => {
+        emitBuild = listener;
+        return Promise.resolve(() => undefined);
+      });
+    client.onBuildState = onBuildState;
+    let resolveFirst: ((data: Uint8Array) => void) | undefined;
+    client.readBuildPdf = vi
+      .fn()
+      .mockImplementation((_projectId, operationId) => {
+        if (operationId === "build-00000000000000000001")
+          return new Promise<Uint8Array>((resolve) => {
+            resolveFirst = resolve;
+          });
+        return Promise.resolve(new Uint8Array([2]));
+      });
+
+    render(
+      <App client={client} pickDirectory={() => Promise.resolve("/paper")} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open folder" }));
+    await waitFor(() => expect(onBuildState).toHaveBeenCalled());
+
+    act(() => {
+      emitBuild?.(
+        pdfBuildState(
+          projectId,
+          "build-00000000000000000001",
+          "succeeded",
+          true,
+        ),
+      );
+    });
+    await waitFor(() =>
+      expect(client.readBuildPdf).toHaveBeenCalledWith(
+        projectId,
+        "build-00000000000000000001",
+      ),
+    );
+    await act(async () => {
+      emitBuild?.(
+        pdfBuildState(
+          projectId,
+          "build-00000000000000000002",
+          "running",
+          false,
+        ),
+      );
+      resolveFirst?.(new Uint8Array([1]));
+      await Promise.resolve();
+    });
+    expect(screen.queryByTestId("pdf-preview")).toBeNull();
+
+    act(() => {
+      emitBuild?.(
+        pdfBuildState(
+          projectId,
+          "build-00000000000000000002",
+          "succeeded",
+          true,
+        ),
+      );
+    });
+    expect(await screen.findByTestId("pdf-preview")).toHaveTextContent(
+      "build-00000000000000000002",
+    );
+
+    act(() => {
+      emitBuild?.(
+        pdfBuildState(projectId, "build-00000000000000000003", "failed", false),
+      );
+    });
+    expect(screen.getByTestId("pdf-preview")).toHaveTextContent(
+      "build-00000000000000000002",
+    );
+  });
+
   it("presents, filters, navigates, and exposes raw build diagnostics", async () => {
     const projectId = "8".repeat(64);
     const readTextFile = vi.fn().mockResolvedValue({
@@ -491,6 +580,32 @@ function conflictClient(
         capture(listener);
         return Promise.resolve(() => undefined);
       }),
+  };
+}
+
+function pdfBuildState(
+  projectId: string,
+  operationId: string,
+  phase: BuildState["phase"],
+  pdfAvailable: boolean,
+): BuildState {
+  return {
+    apiVersion: 1,
+    projectId,
+    operationId,
+    phase,
+    reason: "explicit",
+    rootDocument: "main.tex",
+    engine: "pdfLatex",
+    elapsedMs: phase === "running" ? null : 10n,
+    exitCode: phase === "succeeded" ? 0 : null,
+    logTruncated: false,
+    rawLogAvailable: false,
+    diagnostics: [],
+    pdfAvailable,
+    lastSuccessfulOperationId:
+      phase === "succeeded" ? operationId : "build-00000000000000000002",
+    message: null,
   };
 }
 

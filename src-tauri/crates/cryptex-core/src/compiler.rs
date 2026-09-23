@@ -5,8 +5,8 @@ use crate::{
 };
 use std::{
     ffi::OsString,
-    fs,
-    io::Read,
+    fs::{self, OpenOptions},
+    io::{Read, Write},
     path::{Path, PathBuf},
 };
 use thiserror::Error;
@@ -78,6 +78,71 @@ impl LatexmkRequestBuilder {
             return Err(BuildRequestError::ArtifactTooLarge { max_bytes });
         }
         Ok(bytes)
+    }
+
+    pub fn retain_pdf_artifact(
+        &self,
+        source: &Path,
+        project_id: &str,
+        operation_id: &str,
+        max_bytes: u64,
+    ) -> Result<PathBuf, BuildRequestError> {
+        let project_id = ProjectId::parse(project_id)?;
+        let source = self.validate_artifact_file(source)?;
+        let project_directory = self.build_cache_root.join(project_id.as_str());
+        let project_directory = project_directory
+            .canonicalize()
+            .map_err(BuildRequestError::Io)?;
+        if !project_directory.starts_with(&self.build_cache_root)
+            || !project_directory.is_dir()
+            || !source.starts_with(&project_directory)
+        {
+            return Err(BuildRequestError::InvalidBuildCache);
+        }
+        let bytes = self.read_bounded_artifact(&source, max_bytes)?;
+        let header_limit = bytes.len().min(1024);
+        let trailer_start = bytes.len().saturating_sub(1024);
+        if !bytes[..header_limit]
+            .windows(5)
+            .any(|value| value == b"%PDF-")
+            || !bytes[trailer_start..]
+                .windows(5)
+                .any(|value| value == b"%%EOF")
+        {
+            return Err(BuildRequestError::InvalidPdfArtifact);
+        }
+        if operation_id.len() != 26
+            || !operation_id.starts_with("build-")
+            || !operation_id[6..].bytes().all(|byte| byte.is_ascii_digit())
+        {
+            return Err(BuildRequestError::InvalidOperationId);
+        }
+        let retained_directory = project_directory.join("published");
+        fs::create_dir_all(&retained_directory).map_err(BuildRequestError::Io)?;
+        let retained_directory = retained_directory
+            .canonicalize()
+            .map_err(BuildRequestError::Io)?;
+        if !retained_directory.starts_with(&project_directory) || !retained_directory.is_dir() {
+            return Err(BuildRequestError::InvalidBuildCache);
+        }
+        let target = retained_directory.join(format!("{operation_id}.pdf"));
+        let temporary = retained_directory.join(format!(".{operation_id}.tmp"));
+        let mut output = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temporary)
+            .map_err(BuildRequestError::Io)?;
+        let result = (|| {
+            output.write_all(&bytes).map_err(BuildRequestError::Io)?;
+            output.sync_all().map_err(BuildRequestError::Io)?;
+            drop(output);
+            fs::rename(&temporary, &target).map_err(BuildRequestError::Io)?;
+            self.validate_artifact_file(&target)
+        })();
+        if result.is_err() {
+            let _ = fs::remove_file(&temporary);
+        }
+        result
     }
 
     pub fn clean(&self, project_id: &str) -> Result<(), BuildRequestError> {
@@ -227,6 +292,10 @@ pub enum BuildRequestError {
     InvalidBuildCache,
     #[error("root document filename is not accepted by latexmk")]
     InvalidRootFilename,
+    #[error("build operation identity is invalid")]
+    InvalidOperationId,
+    #[error("build output is not a complete PDF artifact")]
+    InvalidPdfArtifact,
     #[error("project .latexmkrc is not a regular in-project file")]
     UnsafeProjectRc,
     #[error(transparent)]
@@ -460,6 +529,54 @@ mod tests {
                 .builder
                 .read_bounded_artifact(&request.artifacts.pdf, 4),
             Err(BuildRequestError::ArtifactTooLarge { max_bytes: 4 })
+        ));
+    }
+
+    #[test]
+    fn retained_pdf_is_an_immutable_bounded_operation_snapshot() {
+        let fixture = fixture("main.tex", LatexEngine::PdfLatex);
+        let request = fixture
+            .builder
+            .build(
+                &fixture.projects,
+                &fixture.trust,
+                fixture.configuration.clone(),
+            )
+            .unwrap();
+        fs::write(&request.artifacts.pdf, b"%PDF-1.7\nfirst pdf\n%%EOF\n").unwrap();
+        let retained = fixture
+            .builder
+            .retain_pdf_artifact(
+                &request.artifacts.pdf,
+                &fixture.configuration.project_id,
+                "build-00000000000000000001",
+                32,
+            )
+            .unwrap();
+        fs::write(&request.artifacts.pdf, b"%PDF-1.7\nsecond pdf\n%%EOF\n").unwrap();
+        assert_eq!(
+            fs::read(&retained).unwrap(),
+            b"%PDF-1.7\nfirst pdf\n%%EOF\n"
+        );
+        assert!(retained.ends_with("published/build-00000000000000000001.pdf"));
+        assert!(matches!(
+            fixture.builder.retain_pdf_artifact(
+                &request.artifacts.pdf,
+                &fixture.configuration.project_id,
+                "../../escape",
+                32,
+            ),
+            Err(BuildRequestError::InvalidOperationId)
+        ));
+        fs::write(&request.artifacts.pdf, b"%PDF-1.7\ntruncated").unwrap();
+        assert!(matches!(
+            fixture.builder.retain_pdf_artifact(
+                &request.artifacts.pdf,
+                &fixture.configuration.project_id,
+                "build-00000000000000000002",
+                32,
+            ),
+            Err(BuildRequestError::InvalidPdfArtifact)
         ));
     }
 

@@ -108,3 +108,14 @@ response. PDF.js 6.3.289 and its worker are bundled locally. The custom canvas v
 does not instantiate PDF.js annotation or scripting layers, disables XFA and worker
 fetches, caps decoded images and canvas pixels, limits text search to 500 pages, and
 persists only page/zoom view state outside project files.
+
+## Last-successful PDF publication
+
+F4 copies a successful build output into an operation-named immutable snapshot using
+a same-directory temporary file, flush, and atomic rename before publishing it. The
+registry switches only after the snapshot is complete; a failed, cancelled, timed-out,
+stale, oversized, or unpublishable build leaves the prior capability unchanged. Reads
+hold the registry guard while consuming the bounded snapshot, so replacement cannot
+retire it midway. The frontend adds a monotonic request token: responses from older
+builds or projects cannot replace the current preview. A new valid document refreshes
+the existing viewer instance, preserving page and zoom where possible.

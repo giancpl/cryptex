@@ -70,7 +70,11 @@
   limit, cache revalidation, pinned PDF.js worker, canvas-only rendering with scripting
   and annotations excluded, bounded images/canvas/search, page navigation, zoom,
   search, malformed-PDF recovery, and per-project view persistence.
-- Next: F4 last-successful PDF refresh and race handling.
+- F4: implemented with atomic operation-specific PDF snapshots, publish-after-success
+  semantics, preservation across failed/cancelled/timed-out builds, bounded retirement
+  synchronized with reads, stale-response suppression, and refresh without resetting
+  page or zoom.
+- Next: F5 SyncTeX adapter spike and forward search.
 
 The authoritative sequence is:
 
@@ -85,6 +89,6 @@ The authoritative sequence is:
 9. B3 fingerprinted reads and atomic writes.
 10. C1 CodeMirror and document tabs.
 
-Continue with F4-F6, G1-G4, H1-H5, I1-I5, and J1-J6 in
+Continue with F5-F6, G1-G4, H1-H5, I1-I5, and J1-J6 in
 dependency order. M8-M10 remain blocked until J6. Each task is an independently
 reviewable change with tests and the global acceptance rules.

@@ -86,6 +86,7 @@ export function App({
   const documentsRef = useRef(documents);
   const directoriesRef = useRef(directories);
   const buildOperationRef = useRef<string | null>(null);
+  const pdfRequestRef = useRef(0);
   const projectEpochRef = useRef(0);
   const buildEpochsRef = useRef(new Map<string, number>());
   const saveQueues = useRef(new Map<string, Promise<void>>());
@@ -399,6 +400,7 @@ export function App({
     void Promise.all([
       client.onBuildState((state) => {
         if (disposed || state.projectId !== project.projectId) return;
+        pdfRequestRef.current += 1;
         setBuildState((current) => {
           if (current?.operationId !== state.operationId) setBuildLog("");
           buildOperationRef.current = state.operationId;
@@ -442,12 +444,12 @@ export function App({
       !buildState.pdfAvailable
     )
       return;
-    let disposed = false;
+    const request = ++pdfRequestRef.current;
     setPdfError(null);
     void client
       .readBuildPdf(project.projectId, buildState.operationId)
       .then((data) => {
-        if (!disposed)
+        if (pdfRequestRef.current === request)
           setPdfPreview({
             projectId: project.projectId,
             operationId: buildState.operationId,
@@ -455,10 +457,11 @@ export function App({
           });
       })
       .catch((reason: unknown) => {
-        if (!disposed) setPdfError(errorMessage(reason));
+        if (pdfRequestRef.current === request)
+          setPdfError(errorMessage(reason));
       });
     return () => {
-      disposed = true;
+      if (pdfRequestRef.current === request) pdfRequestRef.current += 1;
     };
   }, [buildState, client, project]);
 
@@ -602,6 +605,7 @@ export function App({
       projectEpochRef.current = 0;
       setDiagnosticEpoch(null);
       setRawBuildLog(null);
+      pdfRequestRef.current += 1;
       setPdfPreview(null);
       setPdfError(null);
       setBuildLog("");
@@ -702,6 +706,7 @@ export function App({
       return;
     }
     setError(null);
+    pdfRequestRef.current += 1;
     try {
       await Promise.all(
         Object.keys(documentsRef.current).map((path) => saveDocument(path)),
@@ -741,6 +746,7 @@ export function App({
       buildEpochsRef.current.clear();
       setDiagnosticEpoch(null);
       setRawBuildLog(null);
+      pdfRequestRef.current += 1;
       setPdfPreview(null);
       setPdfError(null);
       setBuildLog("");

@@ -59,6 +59,51 @@ describe("PdfViewer", () => {
     expect(destroy).toHaveBeenCalled();
   });
 
+  it("refreshes a successful artifact without resetting page or zoom", async () => {
+    const destroyed: Array<ReturnType<typeof vi.fn>> = [];
+    const loader: PdfDocumentLoader = vi.fn().mockImplementation(() => {
+      const destroy = vi.fn().mockResolvedValue(undefined);
+      destroyed.push(destroy);
+      return Promise.resolve({
+        numPages: 4,
+        getPage: () =>
+          Promise.resolve({
+            getViewport: ({ scale }: { scale: number }) => ({
+              width: 100 * scale,
+              height: 200 * scale,
+            }),
+            getTextContent: () => Promise.resolve({ items: [] }),
+            render: () => ({ promise: Promise.resolve(), cancel: vi.fn() }),
+          }),
+        destroy,
+      });
+    });
+    const { rerender } = render(
+      <PdfViewer
+        projectId="refresh-project"
+        operationId="build-1"
+        data={new Uint8Array([1])}
+        loadDocument={loader}
+      />,
+    );
+    await waitFor(() => expect(loader).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: "Next PDF page" }));
+    fireEvent.click(screen.getByRole("button", { name: "Zoom in PDF" }));
+
+    rerender(
+      <PdfViewer
+        projectId="refresh-project"
+        operationId="build-2"
+        data={new Uint8Array([2])}
+        loadDocument={loader}
+      />,
+    );
+    await waitFor(() => expect(loader).toHaveBeenCalledTimes(2));
+    expect(screen.getByLabelText("PDF page")).toHaveValue(2);
+    expect(screen.getByLabelText("PDF zoom")).toHaveTextContent("125%");
+    expect(destroyed[0]).toHaveBeenCalled();
+  });
+
   it("contains malformed PDF failures without crashing", async () => {
     const loader: PdfDocumentLoader = vi
       .fn()

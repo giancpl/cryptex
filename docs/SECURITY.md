@@ -29,7 +29,9 @@ rejects source locations outside the canonical project root, and serves only the
 retained operation log after revalidating it as a regular in-cache artifact. F3 applies
 the same operation-scoped cache validation to PDFs, transfers bounded binary data
 instead of paths, and uses a local canvas-only PDF.js integration without annotation,
-form, XFA, or scripting layers.
+form, XFA, or scripting layers. F4 publishes successful PDFs as atomic immutable
+operation snapshots; stale IPC responses are rejected by a monotonic frontend token,
+and replacement/removal is serialized with bounded reads.
 
 Restricted TeX is not a proven sandbox. OS sandboxing is a release investigation,
 not a reason to weaken the controls above.
