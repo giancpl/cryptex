@@ -13,6 +13,7 @@ pub mod process;
 pub mod project;
 pub mod toolchain;
 pub mod toolchain_install;
+pub mod toolchain_package;
 pub mod trust;
 pub mod watcher;
 

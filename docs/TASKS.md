@@ -130,8 +130,11 @@
   digest, performs bounded link-free extraction, validates the complete D2 manifest,
   and atomically activates only a successfully probed immutable version. Release
   inventory generation now binds the sorted dependency closure and declared licenses
-  to the frozen TLPDB SHA-512 and revision. Payload construction, manual license/notice
-  review, sandboxing, and clean-machine evidence remain open.
+  to the frozen TLPDB SHA-512 and revision. A deterministic runtime builder now
+  normalizes archive metadata, materializes safe internal links, embeds inventory and
+  executable hashes, and emits the installer checksum. Building the measured real
+  payload, manual license/notice review, sandboxing, and clean-machine evidence remain
+  open.
 
 The authoritative sequence is:
 

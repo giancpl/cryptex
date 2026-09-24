@@ -40,3 +40,18 @@ temporary file and atomic rename.
 The generated inventory is evidence, not legal approval. Every entry without a
 declared license still requires manual review, and matching notices/source
 availability must accompany the release payload.
+
+## Reproducible runtime payload
+
+`pnpm toolchain:package -- --source DIR --inventory FILE --output FILE.tar.zst
+--toolchain-id texlive-2026.0-x86_64-linux --revision 80315` packages a prepared
+runtime without consulting the network or ambient TeX installation. Files are sorted,
+TAR ownership and timestamps are normalized, permissions are reduced to read/execute,
+and Zstandard parameters are fixed. Safe in-root file symlinks are materialized because
+the installer accepts no links; escaping, directory, broken, and special-file entries
+fail the build.
+
+The builder embeds the verified inventory and a manifest containing hashes of all
+required executables, then writes a SHA-256 sidecar. Rebuilding identical input must
+produce identical archive bytes. The existing offline installer test consumes the
+generated archive, so producer and consumer formats are checked together.
