@@ -31,6 +31,9 @@ Install, activation, and rollback mutations are serialized. Rollback enumerates 
 real version directories below managed storage, repeats the complete manifest/hash/
 probe validation, and atomically switches the active record. Previous versions are
 retained; cleanup is deferred until build-version leases exist.
+Before creating a staging version, installation queries free space on the exact managed
+storage filesystem and requires the ADR-002 provisional 1.5 GB headroom. Insufficient
+space is an actionable terminal error and cannot alter the active version.
 
 ## Restricted process boundary
 

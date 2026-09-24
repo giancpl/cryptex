@@ -58,3 +58,6 @@ probes abort staging without changing the active-version record.
 Rollback accepts a validated version identifier rather than a path, confines it below
 managed storage, and performs the same executable integrity and runtime probes before
 an atomic switch. Failed validation leaves the known-good active record unchanged.
+Offline installation also fails before staging when the managed filesystem reports
+less than 1.5 GB free, bounding predictable disk-exhaustion failures while extraction
+limits remain the defense against misleading archive metadata.

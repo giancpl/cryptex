@@ -60,3 +60,6 @@ Installed versions can be enumerated and reactivated by validated identifier. Ev
 rollback repeats manifest, platform, binary hash, and executable probes before the
 atomic active-version switch. Old versions are intentionally retained: deletion stays
 disabled until the build supervisor can prove that no running operation holds one.
+Installation requires at least 1.5 GB available on the exact application-data
+filesystem before staging. This provisional ADR-002 threshold must be replaced with
+the measured clean-machine peak before V0.1 release.

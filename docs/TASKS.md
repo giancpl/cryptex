@@ -136,7 +136,8 @@
   payload remains open. Lifecycle mutations are serialized and verified rollback can
   atomically reactivate a retained version without accepting paths or deleting a
   possibly leased runtime. Manual license/notice review, sandboxing, and clean-machine
-  evidence remain open.
+  evidence remain open. Offline installation now enforces the provisional 1.5 GB
+  same-filesystem free-space gate required by ADR-002.
 
 The authoritative sequence is:
 

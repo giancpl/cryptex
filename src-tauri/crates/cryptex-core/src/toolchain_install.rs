@@ -18,6 +18,7 @@ const MAX_ARCHIVE_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 const MAX_EXPANDED_BYTES: u64 = 4 * 1024 * 1024 * 1024;
 const MAX_ENTRY_BYTES: u64 = 1024 * 1024 * 1024;
 const MAX_ENTRIES: usize = 200_000;
+const MIN_AVAILABLE_BYTES: u64 = 1_500_000_000;
 static TOOLCHAIN_MUTATIONS: Mutex<()> = Mutex::new(());
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -38,6 +39,13 @@ pub enum InstallError {
     InvalidExpectedDigest,
     #[error("payload SHA-256 verification failed")]
     DigestMismatch,
+    #[error(
+        "insufficient disk space for managed TeX Live: {available_bytes} bytes available, {required_bytes} required"
+    )]
+    InsufficientSpace {
+        available_bytes: u64,
+        required_bytes: u64,
+    },
     #[error("managed toolchain storage is unavailable: {0}")]
     Storage(#[source] io::Error),
     #[error("payload archive is invalid: {0}")]
@@ -96,6 +104,8 @@ fn install_offline_payload_locked(
 
     fs::create_dir_all(managed_root).map_err(InstallError::Storage)?;
     let managed_root = managed_root.canonicalize().map_err(InstallError::Storage)?;
+    let available = fs2::available_space(&managed_root).map_err(InstallError::Storage)?;
+    ensure_available_space(available)?;
     let versions = managed_root.join("versions");
     fs::create_dir_all(&versions).map_err(InstallError::Storage)?;
     let versions = versions.canonicalize().map_err(InstallError::Storage)?;
@@ -133,6 +143,17 @@ fn install_offline_payload_locked(
         toolchain_id: manifest.toolchain_id,
         version_root: destination,
     })
+}
+
+fn ensure_available_space(available_bytes: u64) -> Result<(), InstallError> {
+    if available_bytes < MIN_AVAILABLE_BYTES {
+        Err(InstallError::InsufficientSpace {
+            available_bytes,
+            required_bytes: MIN_AVAILABLE_BYTES,
+        })
+    } else {
+        Ok(())
+    }
 }
 
 pub fn installed_toolchain_ids(managed_root: &Path) -> Result<Vec<String>, InstallError> {
@@ -544,6 +565,20 @@ mod tests {
         let error = install_offline_payload(&managed, &archive, &"0".repeat(64)).unwrap_err();
         assert!(matches!(error, InstallError::DigestMismatch));
         assert!(!managed.exists());
+    }
+
+    #[test]
+    fn rejects_insufficient_space_with_actionable_counts() {
+        let error = ensure_available_space(MIN_AVAILABLE_BYTES - 1).unwrap_err();
+        assert!(matches!(
+            error,
+            InstallError::InsufficientSpace {
+                available_bytes,
+                required_bytes
+            } if available_bytes == MIN_AVAILABLE_BYTES - 1
+                && required_bytes == MIN_AVAILABLE_BYTES
+        ));
+        ensure_available_space(MIN_AVAILABLE_BYTES).unwrap();
     }
 
     #[test]
