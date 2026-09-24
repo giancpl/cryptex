@@ -8,7 +8,8 @@
       "mode": "compile",
       "requiredFiles": [],
       "engine": "pdf",
-      "expectedArtifacts": ["main.tex.pdf", "main.tex.synctex.gz"]
+      "expectedArtifacts": ["main.pdf", "main.synctex.gz"],
+      "portable": true
     },
     {
       "id": "multipass",
@@ -16,7 +17,8 @@
       "mode": "compile",
       "requiredFiles": [],
       "engine": "pdf",
-      "expectedArtifacts": ["main.tex.pdf", "main.tex.synctex.gz"]
+      "expectedArtifacts": ["main.pdf", "main.synctex.gz"],
+      "portable": true
     },
     {
       "id": "bibtex",
@@ -24,7 +26,8 @@
       "mode": "compile",
       "requiredFiles": ["references.bib"],
       "engine": "pdf",
-      "expectedArtifacts": ["main.tex.pdf", "main.tex.synctex.gz"]
+      "expectedArtifacts": ["main.pdf", "main.synctex.gz"],
+      "portable": true
     },
     {
       "id": "biber",
@@ -32,7 +35,8 @@
       "mode": "compile",
       "requiredFiles": ["references.bib"],
       "engine": "pdf",
-      "expectedArtifacts": ["main.tex.pdf", "main.tex.synctex.gz"]
+      "expectedArtifacts": ["main.pdf", "main.synctex.gz"],
+      "portable": true
     },
     {
       "id": "cryptocode",
@@ -40,7 +44,8 @@
       "mode": "compile",
       "requiredFiles": [],
       "engine": "pdf",
-      "expectedArtifacts": ["main.tex.pdf", "main.tex.synctex.gz"]
+      "expectedArtifacts": ["main.pdf", "main.synctex.gz"],
+      "portable": true
     },
     {
       "id": "tikz",
@@ -48,7 +53,8 @@
       "mode": "compile",
       "requiredFiles": [],
       "engine": "pdf",
-      "expectedArtifacts": ["main.tex.pdf", "main.tex.synctex.gz"]
+      "expectedArtifacts": ["main.pdf", "main.synctex.gz"],
+      "portable": true
     },
     {
       "id": "custom-sty",
@@ -56,7 +62,8 @@
       "mode": "compile",
       "requiredFiles": ["localcrypto.sty"],
       "engine": "pdf",
-      "expectedArtifacts": ["main.tex.pdf", "main.tex.synctex.gz"]
+      "expectedArtifacts": ["main.pdf", "main.synctex.gz"],
+      "portable": true
     },
     {
       "id": "xelatex",
@@ -64,7 +71,8 @@
       "mode": "compile",
       "requiredFiles": [],
       "engine": "xelatex",
-      "expectedArtifacts": ["main.tex.pdf", "main.tex.synctex.gz"]
+      "expectedArtifacts": ["main.pdf", "main.synctex.gz"],
+      "portable": true
     },
     {
       "id": "lualatex",
@@ -72,7 +80,8 @@
       "mode": "compile",
       "requiredFiles": [],
       "engine": "lualatex",
-      "expectedArtifacts": ["main.tex.pdf", "main.tex.synctex.gz"]
+      "expectedArtifacts": ["main.pdf", "main.synctex.gz"],
+      "portable": true
     },
     {
       "id": "subfiles",
@@ -80,7 +89,8 @@
       "mode": "compile",
       "requiredFiles": ["chapter.tex"],
       "engine": "pdf",
-      "expectedArtifacts": ["main.tex.pdf", "main.tex.synctex.gz"]
+      "expectedArtifacts": ["main.pdf", "main.synctex.gz"],
+      "portable": true
     },
     {
       "id": "magic-root",
@@ -88,7 +98,8 @@
       "mode": "compile",
       "requiredFiles": ["chapter.tex"],
       "engine": "pdf",
-      "expectedArtifacts": ["main.tex.pdf", "main.tex.synctex.gz"]
+      "expectedArtifacts": ["main.pdf", "main.synctex.gz"],
+      "portable": true
     },
     {
       "id": "multi-root",
@@ -102,7 +113,7 @@
       "mode": "expectedFailure",
       "requiredFiles": [],
       "engine": "pdf",
-      "expectedArtifacts": ["main.tex.pdf", "main.tex.synctex.gz"],
+      "expectedArtifacts": ["main.pdf", "main.synctex.gz"],
       "expectedLog": "Undefined control sequence"
     },
     {
@@ -111,7 +122,7 @@
       "mode": "compile",
       "requiredFiles": [],
       "engine": "pdf",
-      "expectedArtifacts": ["main.tex.pdf", "main.tex.synctex.gz"]
+      "expectedArtifacts": ["main.pdf", "main.synctex.gz"]
     },
     {
       "id": "broken-citation",
@@ -119,7 +130,7 @@
       "mode": "compile",
       "requiredFiles": [],
       "engine": "pdf",
-      "expectedArtifacts": ["main.tex.pdf", "main.tex.synctex.gz"]
+      "expectedArtifacts": ["main.pdf", "main.synctex.gz"]
     },
     {
       "id": "malformed-log",
@@ -211,7 +222,8 @@
       "mode": "compile",
       "requiredFiles": [],
       "engine": "pdf",
-      "expectedArtifacts": ["main.tex.pdf", "main.tex.synctex.gz"]
+      "expectedArtifacts": ["main.pdf", "main.synctex.gz"],
+      "portable": true
     },
     {
       "id": "notation-positive",

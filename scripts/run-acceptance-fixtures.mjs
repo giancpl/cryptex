@@ -61,6 +61,28 @@ async function regular(path, label) {
 export async function loadManifest(path) {
   return JSON.parse(await readFile(path, "utf8"));
 }
+export function validateArtifactBytes(relativePath, bytes) {
+  if (relativePath.endsWith(".pdf")) {
+    const header = bytes
+      .subarray(0, Math.min(bytes.length, 1024))
+      .toString("latin1");
+    const trailer = bytes
+      .subarray(Math.max(0, bytes.length - 2048))
+      .toString("latin1");
+    if (!header.includes("%PDF-") || !trailer.includes("%%EOF"))
+      throw new Error(`invalid PDF artifact: ${relativePath}`);
+  } else if (
+    relativePath.endsWith(".synctex.gz") &&
+    (bytes.length < 2 || bytes[0] !== 0x1f || bytes[1] !== 0x8b)
+  ) {
+    throw new Error(`invalid compressed SyncTeX artifact: ${relativePath}`);
+  }
+}
+
+async function validateArtifact(path, label, relativePath) {
+  await regular(path, label);
+  validateArtifactBytes(relativePath, await readFile(path));
+}
 
 export async function validateFixtureSet(manifest, fixturesRoot) {
   if (manifest.schemaVersion !== 1 || !Array.isArray(manifest.fixtures))
@@ -91,7 +113,17 @@ export async function validateFixtureSet(manifest, fixturesRoot) {
     )
       throw new Error(`${fixture.id} has invalid engine`);
     if (fixture.mode === "expectedFailure" && !fixture.expectedLog)
-      throw new Error(`${fixture.id} must declare expectedLog`);
+      throw new Error(fixture.id + " must declare expectedLog");
+    if (fixture.portable !== undefined && typeof fixture.portable !== "boolean")
+      throw new Error(fixture.id + " has invalid portable declaration");
+    if (fixture.mode !== "static") {
+      const stem = fixture.root.replace(/\.tex$/, "");
+      const expected = [stem + ".pdf", stem + ".synctex.gz"];
+      if (
+        JSON.stringify(fixture.expectedArtifacts) !== JSON.stringify(expected)
+      )
+        throw new Error(fixture.id + " has invalid artifact expectations");
+    }
   }
   return { fixtures: manifest.fixtures.length };
 }
@@ -164,9 +196,10 @@ export async function runCompilableFixtures(manifest, fixturesRoot, texBin) {
             `${fixture.id} failed with exit ${result.status}\n${output.slice(-2000)}`,
           );
         for (const artifact of fixture.expectedArtifacts ?? [])
-          await regular(
+          await validateArtifact(
             join(cwd, artifact),
             `${fixture.id} artifact ${artifact}`,
+            artifact,
           );
       }
       results.push({

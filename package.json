@@ -26,7 +26,8 @@
     "tauri": "tauri",
     "acceptance:validate": "node scripts/run-acceptance-fixtures.mjs",
     "acceptance:compile": "node scripts/run-acceptance-fixtures.mjs --compile",
-    "performance:test": "vitest run src/performance.test.tsx --reporter verbose && cargo test --release --manifest-path src-tauri/crates/cryptex-core/Cargo.toml --test performance_budgets performance_budgets_are_met -- --ignored --exact --nocapture --test-threads=1"
+    "performance:test": "vitest run src/performance.test.tsx --reporter verbose && cargo test --release --manifest-path src-tauri/crates/cryptex-core/Cargo.toml --test performance_budgets performance_budgets_are_met -- --ignored --exact --nocapture --test-threads=1",
+    "portability:validate": "node scripts/check-portability.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

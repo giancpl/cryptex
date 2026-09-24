@@ -123,7 +123,8 @@
 - J1: implemented with the complete manifest-driven fixture matrix, isolated explicit-toolchain compilation, semantic artifact/log expectations, and harness mutation tests.
 - J2: implemented with mapped traversal, failed-write, concurrent-writer, symlink-substitution, watcher-overflow, recovery-corruption, and permission tests; project writes are serialized before fingerprint validation.
 - J3: implemented with executable startup, 10k-tree/index, 5 MiB scan, Finder, memory, atomic-I/O, and build/view-cycle budgets plus a scheduled log-producing workflow.
-- Next: J4 Overleaf and external-tool compatibility.
+- J4: implemented with unchanged out-of-tree project copies, proprietary-file/macro rejection, ordinary latexmk compilation inputs, corrected artifact names, and semantic PDF/SyncTeX validation.
+- Next: J5 Linux packaging, licensing, and clean-machine installation.
 
 The authoritative sequence is:
 

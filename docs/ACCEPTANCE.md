@@ -33,3 +33,11 @@ The harness has regression tests proving that a removed matrix entry or altered
 required outcome fails validation. J2-J6 extend these fixtures with adversarial,
 performance, portability, packaging, and release-machine evidence; J1 does not
 claim those later gates already pass.
+
+## J4 portability gate
+
+Representative project copies must pass `pnpm portability:validate`. Full compilation
+uses `pnpm acceptance:compile -- /absolute/path/to/ordinary/tex/bin/platform`.
+The copy must contain no CrypTex metadata or proprietary macros and must not depend on
+the application runtime. Successful artifacts are compared by declared presence and
+format signatures, not unstable PDF byte identity. See [portability](PORTABILITY.md).
