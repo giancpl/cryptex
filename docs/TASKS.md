@@ -129,7 +129,9 @@
   implemented. The internal offline TeX payload installer now verifies the archive
   digest, performs bounded link-free extraction, validates the complete D2 manifest,
   and atomically activates only a successfully probed immutable version. Release
-  payload construction, licensing, sandboxing, and clean-machine evidence remain open.
+  inventory generation now binds the sorted dependency closure and declared licenses
+  to the frozen TLPDB SHA-512 and revision. Payload construction, manual license/notice
+  review, sandboxing, and clean-machine evidence remain open.
 
 The authoritative sequence is:
 

@@ -75,14 +75,14 @@ export function parseTlpdb(source) {
   return packages;
 }
 
-function concreteDependency(dependency, platform) {
+export function concreteDependency(dependency, platform) {
   if (dependency.includes("/")) return undefined;
   return dependency.endsWith(".ARCH")
     ? `${dependency.slice(0, -5)}.${platform}`
     : dependency;
 }
 
-export function measureClosure(packages, roots, platform) {
+export function resolveClosure(packages, roots, platform) {
   const pending = [...roots];
   const selected = new Set();
   const missing = new Set();
@@ -102,7 +102,14 @@ export function measureClosure(packages, roots, platform) {
       if (concrete) pending.push(concrete);
     }
   }
+  return {
+    missing: [...missing].sort(),
+    selected: [...selected].sort(),
+  };
+}
 
+export function measureClosure(packages, roots, platform) {
+  const { missing, selected } = resolveClosure(packages, roots, platform);
   const archiveBytes = { runtime: 0, documentation: 0, source: 0 };
   const installedBytes = { runtime: 0, documentation: 0, source: 0 };
   const licenseCounts = new Map();
@@ -127,12 +134,12 @@ export function measureClosure(packages, roots, platform) {
   return {
     roots,
     platform,
-    packageCount: selected.size,
+    packageCount: selected.length,
     archiveBytes,
     installedBytes,
     licenseCounts: Object.fromEntries([...licenseCounts].sort()),
     packagesWithoutLicense,
-    missing: [...missing].sort(),
+    missing,
   };
 }
 

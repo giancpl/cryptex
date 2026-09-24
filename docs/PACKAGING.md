@@ -27,3 +27,16 @@ still requires all of the following:
 
 The workflow artifacts are therefore test inputs, not releases. They must not be
 redistributed as CrypTex V0.1.
+
+## TeX Live inventory
+
+`pnpm toolchain:inventory -- --tlpdb FILE --revision 80315 --expected-sha512 HEX
+--output FILE` derives the exact sorted dependency closure from the frozen TLPDB.
+It verifies the database hash before parsing and emits package dependencies, declared
+licenses, archive sizes, installed sizes, roots, platform, revision, and the explicit
+list of packages with no declared license. Output is written through an adjacent
+temporary file and atomic rename.
+
+The generated inventory is evidence, not legal approval. Every entry without a
+declared license still requires manual review, and matching notices/source
+availability must accompany the release payload.

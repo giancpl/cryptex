@@ -28,7 +28,8 @@
     "acceptance:compile": "node scripts/run-acceptance-fixtures.mjs --compile",
     "performance:test": "vitest run src/performance.test.tsx --reporter verbose && cargo test --release --manifest-path src-tauri/crates/cryptex-core/Cargo.toml --test performance_budgets performance_budgets_are_met -- --ignored --exact --nocapture --test-threads=1",
     "portability:validate": "node scripts/check-portability.mjs",
-    "packaging:validate": "node scripts/check-linux-packaging.mjs"
+    "packaging:validate": "node scripts/check-linux-packaging.mjs",
+    "toolchain:inventory": "node scripts/create-texlive-inventory.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
