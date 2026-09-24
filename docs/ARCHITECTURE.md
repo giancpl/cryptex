@@ -22,6 +22,12 @@ canonicalized beneath that root, SHA-256 checked, and version-probed with a clea
 environment before the toolchain can be reported ready. Project paths and ambient
 `PATH` are never discovery inputs. See ADR-002.
 
+J5 installs only a release-provided offline `tar.zst` payload whose expected SHA-256
+is trusted packaging metadata. Extraction is bounded and rejects traversal, links,
+devices, duplicate files, and oversized input. A staged version is moved into the
+managed versions directory and `active.json` is atomically replaced only after the
+manifest, platform, executable hashes, and all version probes pass.
+
 ## Restricted process boundary
 
 D3 keeps process creation inside the Rust core; there is intentionally no generic

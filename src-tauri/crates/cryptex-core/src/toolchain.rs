@@ -8,8 +8,8 @@ use std::{
     process::{Command, Stdio},
 };
 
-const MANIFEST_VERSION: u16 = 1;
-const REQUIRED_BINARIES: [&str; 8] = [
+pub(crate) const MANIFEST_VERSION: u16 = 1;
+pub(crate) const REQUIRED_BINARIES: [&str; 8] = [
     "latexmk",
     "pdflatex",
     "xelatex",
@@ -29,13 +29,13 @@ struct ActiveToolchain {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct ToolchainManifest {
-    format_version: u16,
-    toolchain_id: String,
-    texlive_year: u16,
-    texlive_revision: u32,
-    platform: String,
-    binaries: BTreeMap<String, String>,
+pub(crate) struct ToolchainManifest {
+    pub(crate) format_version: u16,
+    pub(crate) toolchain_id: String,
+    pub(crate) texlive_year: u16,
+    pub(crate) texlive_revision: u32,
+    pub(crate) platform: String,
+    pub(crate) binaries: BTreeMap<String, String>,
 }
 
 pub struct ToolchainService {
@@ -263,7 +263,7 @@ fn incompatible(manifest: &ToolchainManifest) -> ToolchainReadiness {
     }
 }
 
-fn supported_platform() -> &'static str {
+pub(crate) fn supported_platform() -> &'static str {
     if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
         "x86_64-linux"
     } else {
@@ -279,7 +279,7 @@ fn validate_version(version: u16, label: &str) -> Result<(), String> {
     }
 }
 
-fn validate_id(value: &str) -> Result<(), String> {
+pub(crate) fn validate_id(value: &str) -> Result<(), String> {
     if !value.is_empty()
         && value.len() <= 100
         && value
@@ -292,7 +292,7 @@ fn validate_id(value: &str) -> Result<(), String> {
     }
 }
 
-fn validate_digest(value: &str) -> Result<(), String> {
+pub(crate) fn validate_digest(value: &str) -> Result<(), String> {
     if value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         Ok(())
     } else {
@@ -300,7 +300,7 @@ fn validate_digest(value: &str) -> Result<(), String> {
     }
 }
 
-fn probe_version(executable: &Path, root: &Path) -> Result<String, String> {
+pub(crate) fn probe_version(executable: &Path, root: &Path) -> Result<String, String> {
     let output = Command::new(executable)
         .arg("--version")
         .current_dir(root)

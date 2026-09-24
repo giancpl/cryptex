@@ -12,6 +12,7 @@ pub mod notation_usage;
 pub mod process;
 pub mod project;
 pub mod toolchain;
+pub mod toolchain_install;
 pub mod trust;
 pub mod watcher;
 

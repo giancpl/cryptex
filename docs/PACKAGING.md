@@ -19,7 +19,8 @@ still requires all of the following:
 - a frozen TeX Live runtime archive, package inventory, checksums, notices, and
   matching source-availability procedure from ADR-002;
 - an audited resolution for Biber's `libcrypt.so.1` dependency;
-- secure offline payload extraction and atomic activation into application data;
+- release integration for the implemented bounded offline payload extraction and
+  atomic activation into application data;
 - clean-machine install, offline fixture compilation, upgrade, rollback, uninstall,
   and project-preservation evidence;
 - Linux process/filesystem sandbox validation and release signing/update policy.

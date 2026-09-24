@@ -126,8 +126,10 @@
 - J4: implemented with unchanged out-of-tree project copies, proprietary-file/macro rejection, ordinary latexmk compilation inputs, corrected artifact names, and semantic PDF/SyncTeX validation.
 - J5: in progress; the supported Ubuntu 24.04 x86_64 baseline, explicit Debian/AppImage
   bundle targets, non-publishing smoke workflow, checksums, and configuration gate are
-  implemented. TeX payload delivery, licensing, sandboxing, and clean-machine evidence
-  remain open.
+  implemented. The internal offline TeX payload installer now verifies the archive
+  digest, performs bounded link-free extraction, validates the complete D2 manifest,
+  and atomically activates only a successfully probed immutable version. Release
+  payload construction, licensing, sandboxing, and clean-machine evidence remain open.
 
 The authoritative sequence is:
 

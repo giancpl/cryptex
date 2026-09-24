@@ -49,3 +49,9 @@ J2 serializes project writes across the process before fingerprint validation an
 
 Restricted TeX is not a proven sandbox. OS sandboxing is a release investigation,
 not a reason to weaken the controls above.
+
+The J5 offline payload installer hashes the compressed archive before creating
+toolchain storage, accepts only regular files and directories with normal relative
+paths, and bounds compressed size, expanded size, entries, and individual files.
+Symlinks, hard links, devices, FIFOs, traversal, duplicates, and failed executable
+probes abort staging without changing the active-version record.
