@@ -28,6 +28,10 @@ still requires all of the following:
 The workflow artifacts are therefore test inputs, not releases. They must not be
 redistributed as CrypTex V0.1.
 
+The final candidate must collect its artifacts and logs into one immutable evidence
+directory and pass the fail-closed command documented in [CI_RELEASE.md](CI_RELEASE.md).
+An application bundle alone cannot satisfy that gate.
+
 ## TeX Live inventory
 
 `pnpm toolchain:inventory -- --tlpdb FILE --revision 80315 --expected-sha512 HEX

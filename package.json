@@ -33,7 +33,8 @@
     "toolchain:inventory": "node scripts/create-texlive-inventory.mjs",
     "toolchain:package": "cargo run --manifest-path src-tauri/crates/cryptex-core/Cargo.toml --bin build_texlive_payload --",
     "licenses:generate": "node scripts/generate-license-report.mjs",
-    "licenses:check": "node scripts/generate-license-report.mjs --check"
+    "licenses:check": "node scripts/generate-license-report.mjs --check",
+    "release:validate": "node scripts/check-release-evidence.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
