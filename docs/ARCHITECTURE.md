@@ -27,6 +27,10 @@ is trusted packaging metadata. Extraction is bounded and rejects traversal, link
 devices, duplicate files, and oversized input. A staged version is moved into the
 managed versions directory and `active.json` is atomically replaced only after the
 manifest, platform, executable hashes, and all version probes pass.
+Install, activation, and rollback mutations are serialized. Rollback enumerates only
+real version directories below managed storage, repeats the complete manifest/hash/
+probe validation, and atomically switches the active record. Previous versions are
+retained; cleanup is deferred until build-version leases exist.
 
 ## Restricted process boundary
 

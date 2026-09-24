@@ -55,3 +55,8 @@ The builder embeds the verified inventory and a manifest containing hashes of al
 required executables, then writes a SHA-256 sidecar. Rebuilding identical input must
 produce identical archive bytes. The existing offline installer test consumes the
 generated archive, so producer and consumer formats are checked together.
+
+Installed versions can be enumerated and reactivated by validated identifier. Every
+rollback repeats manifest, platform, binary hash, and executable probes before the
+atomic active-version switch. Old versions are intentionally retained: deletion stays
+disabled until the build supervisor can prove that no running operation holds one.

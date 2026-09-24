@@ -9,6 +9,7 @@ use std::{
     fs::{self, File, OpenOptions},
     io::{self, BufReader, Read, Seek, SeekFrom, Write},
     path::{Component, Path, PathBuf},
+    sync::Mutex,
 };
 use tempfile::{NamedTempFile, tempdir_in};
 use thiserror::Error;
@@ -17,6 +18,7 @@ const MAX_ARCHIVE_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 const MAX_EXPANDED_BYTES: u64 = 4 * 1024 * 1024 * 1024;
 const MAX_ENTRY_BYTES: u64 = 1024 * 1024 * 1024;
 const MAX_ENTRIES: usize = 200_000;
+static TOOLCHAIN_MUTATIONS: Mutex<()> = Mutex::new(());
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InstalledToolchain {
@@ -44,6 +46,10 @@ pub enum InstallError {
     Manifest(String),
     #[error("toolchain version already exists")]
     AlreadyExists,
+    #[error("toolchain version is not installed")]
+    NotInstalled,
+    #[error("toolchain lifecycle lock is unavailable")]
+    LifecycleLock,
 }
 
 #[derive(Serialize)]
@@ -54,6 +60,17 @@ struct ActiveToolchain<'a> {
 }
 
 pub fn install_offline_payload(
+    managed_root: &Path,
+    payload: &Path,
+    expected_sha256: &str,
+) -> Result<InstalledToolchain, InstallError> {
+    let _mutation = TOOLCHAIN_MUTATIONS
+        .lock()
+        .map_err(|_| InstallError::LifecycleLock)?;
+    install_offline_payload_locked(managed_root, payload, expected_sha256)
+}
+
+fn install_offline_payload_locked(
     managed_root: &Path,
     payload: &Path,
     expected_sha256: &str,
@@ -115,6 +132,83 @@ pub fn install_offline_payload(
     Ok(InstalledToolchain {
         toolchain_id: manifest.toolchain_id,
         version_root: destination,
+    })
+}
+
+pub fn installed_toolchain_ids(managed_root: &Path) -> Result<Vec<String>, InstallError> {
+    let _mutation = TOOLCHAIN_MUTATIONS
+        .lock()
+        .map_err(|_| InstallError::LifecycleLock)?;
+    let root = managed_root.canonicalize().map_err(InstallError::Storage)?;
+    let versions = root
+        .join("versions")
+        .canonicalize()
+        .map_err(InstallError::Storage)?;
+    if !versions.starts_with(&root) {
+        return Err(InstallError::Manifest(
+            "versions directory escapes managed storage".to_owned(),
+        ));
+    }
+    let mut ids = Vec::new();
+    for entry in fs::read_dir(versions).map_err(InstallError::Storage)? {
+        let entry = entry.map_err(InstallError::Storage)?;
+        let file_type = entry.file_type().map_err(InstallError::Storage)?;
+        let id = entry
+            .file_name()
+            .into_string()
+            .map_err(|_| InstallError::Manifest("toolchain identity is not UTF-8".to_owned()))?;
+        validate_id(&id).map_err(InstallError::Manifest)?;
+        if !file_type.is_dir() || file_type.is_symlink() {
+            return Err(InstallError::Manifest(format!(
+                "installed toolchain {id} is not a real directory"
+            )));
+        }
+        ids.push(id);
+    }
+    ids.sort();
+    Ok(ids)
+}
+
+pub fn activate_installed_toolchain(
+    managed_root: &Path,
+    toolchain_id: &str,
+) -> Result<InstalledToolchain, InstallError> {
+    let _mutation = TOOLCHAIN_MUTATIONS
+        .lock()
+        .map_err(|_| InstallError::LifecycleLock)?;
+    validate_id(toolchain_id).map_err(InstallError::Manifest)?;
+    let root = managed_root.canonicalize().map_err(InstallError::Storage)?;
+    let versions = root
+        .join("versions")
+        .canonicalize()
+        .map_err(InstallError::Storage)?;
+    if !versions.starts_with(&root) {
+        return Err(InstallError::Manifest(
+            "versions directory escapes managed storage".to_owned(),
+        ));
+    }
+    let version_root = match versions.join(toolchain_id).canonicalize() {
+        Ok(path) => path,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            return Err(InstallError::NotInstalled);
+        }
+        Err(error) => return Err(InstallError::Storage(error)),
+    };
+    if !version_root.starts_with(&versions) || !version_root.is_dir() {
+        return Err(InstallError::Manifest(
+            "installed toolchain escapes managed storage".to_owned(),
+        ));
+    }
+    let manifest = validate_staged_toolchain(&version_root)?;
+    if manifest.toolchain_id != toolchain_id {
+        return Err(InstallError::Manifest(
+            "manifest identity does not match requested version".to_owned(),
+        ));
+    }
+    write_active(&root, toolchain_id)?;
+    Ok(InstalledToolchain {
+        toolchain_id: toolchain_id.to_owned(),
+        version_root,
     })
 }
 
@@ -383,8 +477,8 @@ mod tests {
         builder.append_data(&mut header, path, bytes).unwrap();
     }
 
-    fn payload(directory: &Path, include_link: bool) -> (PathBuf, String) {
-        let archive_path = directory.join("texlive.tar.zst");
+    fn payload(directory: &Path, id: &str, include_link: bool) -> (PathBuf, String) {
+        let archive_path = directory.join(format!("{id}.tar.zst"));
         let encoder = zstd::Encoder::new(File::create(&archive_path).unwrap(), 1).unwrap();
         let mut builder = Builder::new(encoder);
         let script = b"#!/bin/sh\nprintf 'fixture 1.0\\n'\n";
@@ -395,7 +489,7 @@ mod tests {
             .collect::<std::collections::BTreeMap<_, _>>();
         let manifest = serde_json::to_vec(&json!({
             "formatVersion": 1,
-            "toolchainId": "texlive-2026.0-x86_64-linux",
+            "toolchainId": id,
             "texliveYear": 2026,
             "texliveRevision": 80315,
             "platform": "x86_64-linux",
@@ -431,7 +525,7 @@ mod tests {
     #[test]
     fn installs_verifies_and_atomically_activates_payload() {
         let temp = tempdir().unwrap();
-        let (archive, digest) = payload(temp.path(), false);
+        let (archive, digest) = payload(temp.path(), "texlive-2026.0-x86_64-linux", false);
         let managed = temp.path().join("managed");
         let installed = install_offline_payload(&managed, &archive, &digest).unwrap();
         assert_eq!(installed.toolchain_id, "texlive-2026.0-x86_64-linux");
@@ -445,7 +539,7 @@ mod tests {
     #[test]
     fn rejects_digest_mismatch_without_creating_storage() {
         let temp = tempdir().unwrap();
-        let (archive, _) = payload(temp.path(), false);
+        let (archive, _) = payload(temp.path(), "texlive-2026.0-x86_64-linux", false);
         let managed = temp.path().join("managed");
         let error = install_offline_payload(&managed, &archive, &"0".repeat(64)).unwrap_err();
         assert!(matches!(error, InstallError::DigestMismatch));
@@ -462,7 +556,7 @@ mod tests {
             br#"{"formatVersion":1,"toolchainId":"known-good"}"#,
         )
         .unwrap();
-        let (archive, digest) = payload(temp.path(), true);
+        let (archive, digest) = payload(temp.path(), "texlive-2026.0-x86_64-linux", true);
         let error = install_offline_payload(&managed, &archive, &digest).unwrap_err();
         assert!(matches!(error, InstallError::Archive(_)));
         assert_eq!(
@@ -475,7 +569,7 @@ mod tests {
     #[test]
     fn installed_version_is_read_only() {
         let temp = tempdir().unwrap();
-        let (archive, digest) = payload(temp.path(), false);
+        let (archive, digest) = payload(temp.path(), "texlive-2026.0-x86_64-linux", false);
         let installed =
             install_offline_payload(&temp.path().join("managed"), &archive, &digest).unwrap();
         let mode = fs::metadata(installed.version_root.join("bin/x86_64-linux/latexmk"))
@@ -491,5 +585,50 @@ mod tests {
                 & 0o222,
             0
         );
+    }
+
+    #[test]
+    fn lists_versions_and_rolls_back_only_after_full_revalidation() {
+        let temp = tempdir().unwrap();
+        let managed = temp.path().join("managed");
+        let first_id = "texlive-2026.0-x86_64-linux";
+        let second_id = "texlive-2026.1-x86_64-linux";
+        let (first, first_digest) = payload(temp.path(), first_id, false);
+        install_offline_payload(&managed, &first, &first_digest).unwrap();
+        let (second, second_digest) = payload(temp.path(), second_id, false);
+        install_offline_payload(&managed, &second, &second_digest).unwrap();
+        assert_eq!(
+            installed_toolchain_ids(&managed).unwrap(),
+            [first_id, second_id]
+        );
+
+        activate_installed_toolchain(&managed, first_id).unwrap();
+        let readiness = ToolchainService::new(managed.clone()).readiness();
+        assert_eq!(readiness.toolchain_id.as_deref(), Some(first_id));
+
+        let executable = managed
+            .join("versions")
+            .join(second_id)
+            .join("bin/x86_64-linux/latexmk");
+        fs::set_permissions(&executable, fs::Permissions::from_mode(0o755)).unwrap();
+        fs::write(&executable, b"tampered").unwrap();
+        assert!(activate_installed_toolchain(&managed, second_id).is_err());
+        let readiness = ToolchainService::new(managed).readiness();
+        assert_eq!(readiness.toolchain_id.as_deref(), Some(first_id));
+    }
+
+    #[test]
+    fn rollback_rejects_unknown_and_escaping_identities() {
+        let temp = tempdir().unwrap();
+        let managed = temp.path().join("managed");
+        fs::create_dir_all(managed.join("versions")).unwrap();
+        assert!(matches!(
+            activate_installed_toolchain(&managed, "not-installed"),
+            Err(InstallError::NotInstalled)
+        ));
+        assert!(matches!(
+            activate_installed_toolchain(&managed, "../../outside"),
+            Err(InstallError::Manifest(_))
+        ));
     }
 }

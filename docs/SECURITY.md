@@ -55,3 +55,6 @@ toolchain storage, accepts only regular files and directories with normal relati
 paths, and bounds compressed size, expanded size, entries, and individual files.
 Symlinks, hard links, devices, FIFOs, traversal, duplicates, and failed executable
 probes abort staging without changing the active-version record.
+Rollback accepts a validated version identifier rather than a path, confines it below
+managed storage, and performs the same executable integrity and runtime probes before
+an atomic switch. Failed validation leaves the known-good active record unchanged.

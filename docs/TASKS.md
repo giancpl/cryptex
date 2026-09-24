@@ -133,8 +133,10 @@
   to the frozen TLPDB SHA-512 and revision. A deterministic runtime builder now
   normalizes archive metadata, materializes safe internal links, embeds inventory and
   executable hashes, and emits the installer checksum. Building the measured real
-  payload, manual license/notice review, sandboxing, and clean-machine evidence remain
-  open.
+  payload remains open. Lifecycle mutations are serialized and verified rollback can
+  atomically reactivate a retained version without accepting paths or deleting a
+  possibly leased runtime. Manual license/notice review, sandboxing, and clean-machine
+  evidence remain open.
 
 The authoritative sequence is:
 
