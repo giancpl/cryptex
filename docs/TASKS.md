@@ -138,6 +138,8 @@
   possibly leased runtime. Manual license/notice review, sandboxing, and clean-machine
   evidence remain open. Offline installation now enforces the provisional 1.5 GB
   same-filesystem free-space gate required by ADR-002.
+  The application license is explicitly GPL-3.0-or-later; third-party and TeX Live
+  notice review remains open.
 
 The authoritative sequence is:
 

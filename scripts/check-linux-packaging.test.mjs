@@ -7,7 +7,11 @@ const config = {
   identifier: "org.cryptex.app",
   version: "0.1.0",
 };
-const applicationPackage = { private: true, version: "0.1.0-dev" };
+const applicationPackage = {
+  license: "GPL-3.0-or-later",
+  private: true,
+  version: "0.1.0-dev",
+};
 
 describe("Linux packaging contract", () => {
   it("accepts the frozen prerelease configuration", () => {
@@ -35,9 +39,15 @@ describe("Linux packaging contract", () => {
     ).toThrow("exactly appimage and deb");
   });
 
-  it("keeps publishing disabled while the application license is unresolved", () => {
+  it("requires the approved license and disables npm publishing", () => {
+    expect(() =>
+      validateLinuxPackaging(config, {
+        ...applicationPackage,
+        license: "UNLICENSED",
+      }),
+    ).toThrow("license must be GPL-3.0-or-later");
     expect(() =>
       validateLinuxPackaging(config, { ...applicationPackage, private: false }),
-    ).toThrow("requires a private package");
+    ).toThrow("must not be published as an npm package");
   });
 });

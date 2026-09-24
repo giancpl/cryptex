@@ -6,8 +6,8 @@ target; other distributions and architectures remain unverified rather than bein
 implied by Tauri's portable architecture.
 
 Run `pnpm packaging:validate` to verify that the checked-in Tauri configuration is
-explicitly limited to those two formats and that the workspace remains private while
-the application license is unresolved. The manually dispatched `Linux package smoke
+explicitly limited to those two formats, uses GPL-3.0-or-later, and remains protected
+from accidental npm publication. The manually dispatched `Linux package smoke
 test` workflow builds both formats, records SHA-256 checksums, and retains them for
 seven days as CI evidence. It has no release permission and does not publish to a
 GitHub release or package registry.
@@ -15,7 +15,7 @@ GitHub release or package registry.
 This first J5 gate covers only application-bundle construction. A distributable V0.1
 still requires all of the following:
 
-- an approved application license and complete application/dependency notices;
+- complete application/dependency notices for the approved GPL-3.0-or-later release;
 - a frozen TeX Live runtime archive, package inventory, checksums, notices, and
   matching source-availability procedure from ADR-002;
 - an audited resolution for Biber's `libcrypt.so.1` dependency;

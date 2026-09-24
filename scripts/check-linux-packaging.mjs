@@ -35,9 +35,12 @@ export function validateLinuxPackaging(config, applicationPackage) {
       "the workspace version must remain the explicit 0.1.0-dev prerelease",
     );
   }
+  if (applicationPackage?.license !== "GPL-3.0-or-later") {
+    errors.push("the application license must be GPL-3.0-or-later");
+  }
   if (applicationPackage?.private !== true) {
     errors.push(
-      "the unresolved application license requires a private package",
+      "the desktop workspace must not be published as an npm package",
     );
   }
   if (errors.length > 0) throw new Error(errors.join("\n"));

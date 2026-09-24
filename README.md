@@ -4,6 +4,9 @@ CrypTex is a Linux-first, local-first desktop environment for writing cryptograp
 papers in standard LaTeX. Project folders remain ordinary LaTeX projects that can
 be compiled with `latexmk` or uploaded to Overleaf.
 
+CrypTex application source is licensed under GPL-3.0-or-later. See [LICENSE](LICENSE)
+and [licensing notes](docs/LICENSING.md).
+
 The project is in foundation development. See [PRODUCT](docs/PRODUCT.md),
 [ARCHITECTURE](docs/ARCHITECTURE.md), [SECURITY](docs/SECURITY.md), and
 [TASKS](docs/TASKS.md) before changing product behavior.

@@ -2,6 +2,7 @@
   "name": "cryptex",
   "private": true,
   "version": "0.1.0-dev",
+  "license": "GPL-3.0-or-later",
   "type": "module",
   "packageManager": "pnpm@10.17.1",
   "engines": {

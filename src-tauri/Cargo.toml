@@ -3,6 +3,7 @@ name = "cryptex"
 version = "0.1.0"
 description = "Local-first LaTeX environment for cryptography papers"
 authors = ["CrypTex contributors"]
+license = "GPL-3.0-or-later"
 edition = "2024"
 rust-version = "1.88"
 publish = false
