@@ -121,7 +121,8 @@
   suppressions stored outside source trees.
 - I5: implemented with exact indexed edit enumeration, per-file before/after review, explicit file selection, apply-time fingerprint revalidation, atomic per-file writes, and recoverable changed/failed results.
 - J1: implemented with the complete manifest-driven fixture matrix, isolated explicit-toolchain compilation, semantic artifact/log expectations, and harness mutation tests.
-- Next: J2 filesystem and recovery adversarial suite.
+- J2: implemented with mapped traversal, failed-write, concurrent-writer, symlink-substitution, watcher-overflow, recovery-corruption, and permission tests; project writes are serialized before fingerprint validation.
+- Next: J3 performance and stability budgets.
 
 The authoritative sequence is:
 

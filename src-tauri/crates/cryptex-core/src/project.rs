@@ -9,6 +9,7 @@ use std::{
     fs::{self, File},
     io::{Read, Write},
     path::{Component, Path, PathBuf},
+    sync::Mutex,
 };
 use tempfile::NamedTempFile;
 use thiserror::Error;
@@ -115,6 +116,7 @@ impl ProjectRoot {
 #[derive(Default)]
 pub struct ProjectService {
     projects: HashMap<ProjectId, ProjectRoot>,
+    write_lock: Mutex<()>,
 }
 
 impl ProjectService {
@@ -229,6 +231,10 @@ impl ProjectService {
         text: &str,
         expected_fingerprint: &str,
     ) -> Result<WriteResult, ProjectError> {
+        let _write_guard = self
+            .write_lock
+            .lock()
+            .map_err(|_| ProjectError::WriteLock)?;
         if text.len() as u64 > MAX_TEXT_FILE_BYTES {
             return Err(ProjectError::FileTooLarge);
         }
@@ -584,6 +590,8 @@ pub enum ProjectError {
     StaleFingerprint,
     #[error("file has no valid parent directory")]
     InvalidParent,
+    #[error("project write serialization failed")]
+    WriteLock,
     #[error("filesystem operation failed: {0}")]
     Io(#[source] std::io::Error),
 }
@@ -748,6 +756,32 @@ mod tests {
     }
 
     #[test]
+    fn rejected_oversized_write_preserves_the_original_file() {
+        let directory = tempdir().expect("temporary project");
+        let file = directory.path().join("main.tex");
+        fs::write(&file, "original").expect("fixture file");
+        let mut service = ProjectService::default();
+        let project = service.open(directory.path()).expect("open project");
+        let document = service
+            .read_text_file(&project.project_id, "main.tex")
+            .expect("read");
+        let oversized = "x".repeat(MAX_TEXT_FILE_BYTES as usize + 1);
+        assert!(matches!(
+            service.write_text_file(
+                &project.project_id,
+                "main.tex",
+                &oversized,
+                &document.fingerprint
+            ),
+            Err(ProjectError::FileTooLarge)
+        ));
+        assert_eq!(
+            fs::read_to_string(file).expect("preserved file"),
+            "original"
+        );
+    }
+
+    #[test]
     fn atomic_write_returns_the_new_fingerprint() {
         let directory = tempdir().expect("temporary project");
         let file = directory.path().join("main.tex");
@@ -831,6 +865,82 @@ mod tests {
             .expect("symlink entry");
         assert!(!escape.accessible);
         assert_eq!(escape.kind, FileTreeEntryKind::Symlink);
+    }
+
+    #[test]
+    fn concurrent_writes_with_one_fingerprint_have_one_winner() {
+        use std::{
+            sync::{Arc, Barrier},
+            thread,
+        };
+        let directory = tempdir().expect("temporary project");
+        let file = directory.path().join("main.tex");
+        fs::write(&file, "original").expect("fixture file");
+        let mut service = ProjectService::default();
+        let project = service.open(directory.path()).expect("open project");
+        let fingerprint = service
+            .read_text_file(&project.project_id, "main.tex")
+            .expect("read")
+            .fingerprint;
+        let service = Arc::new(service);
+        let barrier = Arc::new(Barrier::new(3));
+        let mut workers = Vec::new();
+        for text in ["first", "second"] {
+            let service = Arc::clone(&service);
+            let barrier = Arc::clone(&barrier);
+            let project_id = project.project_id.clone();
+            let fingerprint = fingerprint.clone();
+            workers.push(thread::spawn(move || {
+                barrier.wait();
+                service.write_text_file(&project_id, "main.tex", text, &fingerprint)
+            }));
+        }
+        barrier.wait();
+        let results = workers
+            .into_iter()
+            .map(|worker| worker.join().expect("worker"))
+            .collect::<Vec<_>>();
+        assert_eq!(results.iter().filter(|result| result.is_ok()).count(), 1);
+        assert_eq!(
+            results
+                .iter()
+                .filter(|result| matches!(result, Err(ProjectError::StaleFingerprint)))
+                .count(),
+            1
+        );
+        assert!(matches!(
+            fs::read_to_string(file).expect("final file").as_str(),
+            "first" | "second"
+        ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlink_swap_after_read_cannot_overwrite_an_outside_file() {
+        use std::os::unix::fs::symlink;
+        let project = tempdir().expect("temporary project");
+        let outside = tempdir().expect("outside directory");
+        let file = project.path().join("main.tex");
+        let secret = outside.path().join("secret.tex");
+        fs::write(&file, "original").expect("fixture file");
+        fs::write(&secret, "outside").expect("outside file");
+        let mut service = ProjectService::default();
+        let summary = service.open(project.path()).expect("open project");
+        let document = service
+            .read_text_file(&summary.project_id, "main.tex")
+            .expect("read");
+        fs::remove_file(&file).expect("remove original");
+        symlink(&secret, &file).expect("swap to outside symlink");
+        assert!(matches!(
+            service.write_text_file(
+                &summary.project_id,
+                "main.tex",
+                "attack",
+                &document.fingerprint
+            ),
+            Err(ProjectError::Path(ProjectPathError::OutsideRoot))
+        ));
+        assert_eq!(fs::read_to_string(secret).expect("outside file"), "outside");
     }
 
     #[test]

@@ -835,6 +835,7 @@ fn project_error(error: ProjectError) -> ApiError {
         ProjectError::InvalidUtf8 => "INVALID_UTF8",
         ProjectError::StaleFingerprint => "STALE_FINGERPRINT",
         ProjectError::InvalidParent => "INVALID_PARENT",
+        ProjectError::WriteLock => "WRITE_SERIALIZATION_ERROR",
         ProjectError::Path(_) => "UNSAFE_PROJECT_PATH",
         ProjectError::Io(_) => "FILESYSTEM_ERROR",
     };
@@ -842,7 +843,7 @@ fn project_error(error: ProjectError) -> ApiError {
         api_version: API_VERSION,
         code: code.to_owned(),
         message: error.to_string(),
-        retryable: matches!(error, ProjectError::Io(_)),
+        retryable: matches!(error, ProjectError::Io(_) | ProjectError::WriteLock),
     }
 }
 

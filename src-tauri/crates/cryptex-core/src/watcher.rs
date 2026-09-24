@@ -260,4 +260,34 @@ mod tests {
         }
         assert!(correlated, "expected write was not correlated");
     }
+    #[test]
+    fn watcher_backend_failure_requests_a_full_rescan() {
+        let directory = tempdir().expect("temporary project");
+        let expected = ExpectedWrites::default();
+        let changes = normalize_batch(
+            &"c".repeat(64),
+            directory.path(),
+            &expected,
+            vec![Err(notify::Error::generic("simulated overflow"))],
+        );
+        assert_eq!(changes.len(), 1);
+        assert_eq!(changes[0].kind, ProjectFileChangeKind::Rescan);
+        assert!(changes[0].relative_paths.is_empty());
+        assert!(!changes[0].self_write);
+    }
+
+    #[test]
+    fn watcher_drops_paths_outside_the_project_root() {
+        let project = tempdir().expect("temporary project");
+        let outside = tempdir().expect("outside directory");
+        let event = Event::new(EventKind::Modify(ModifyKind::Any))
+            .add_path(outside.path().join("secret.tex"));
+        let changes = normalize_batch(
+            &"d".repeat(64),
+            project.path(),
+            &ExpectedWrites::default(),
+            vec![Ok(event)],
+        );
+        assert!(changes.is_empty());
+    }
 }

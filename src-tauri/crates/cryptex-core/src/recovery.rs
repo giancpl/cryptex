@@ -286,4 +286,47 @@ mod tests {
                 .is_empty()
         );
     }
+    #[cfg(unix)]
+    #[test]
+    fn recovery_storage_uses_restrictive_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+        let directory = tempdir().expect("recovery directory");
+        let root = directory.path().join("recovery");
+        let service = RecoveryService::new(root.clone());
+        let project_id = "1".repeat(64);
+        service
+            .store(&project_id, "main.tex", "draft", &"2".repeat(64), 1)
+            .expect("store snapshot");
+        let project_directory = root.join(&project_id);
+        let snapshot = fs::read_dir(&project_directory)
+            .expect("project recovery")
+            .next()
+            .expect("snapshot entry")
+            .expect("snapshot")
+            .path();
+        assert_eq!(
+            fs::metadata(&root)
+                .expect("root metadata")
+                .permissions()
+                .mode()
+                & 0o777,
+            0o700
+        );
+        assert_eq!(
+            fs::metadata(&project_directory)
+                .expect("project metadata")
+                .permissions()
+                .mode()
+                & 0o777,
+            0o700
+        );
+        assert_eq!(
+            fs::metadata(snapshot)
+                .expect("snapshot metadata")
+                .permissions()
+                .mode()
+                & 0o777,
+            0o600
+        );
+    }
 }
