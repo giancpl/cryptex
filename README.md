@@ -22,6 +22,7 @@ pnpm check
 pnpm test
 pnpm acceptance:validate
 pnpm portability:validate
+pnpm packaging:validate
 pnpm performance:test
 pnpm tauri build
 ```

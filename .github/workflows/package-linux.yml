@@ -1,0 +1,38 @@
+name: Linux package smoke test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Tauri packaging dependencies
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm packaging:validate
+      - name: Build non-publishable Linux bundles
+        run: pnpm tauri build --bundles deb,appimage
+      - name: Record bundle checksums
+        run: find src-tauri/target/release/bundle -type f -print0 | sort -z | xargs -0 sha256sum > linux-bundle-sha256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cryptex-linux-smoke-${{ github.sha }}
+          path: |
+            src-tauri/target/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/appimage/*.AppImage
+            linux-bundle-sha256.txt
+          if-no-files-found: error
+          retention-days: 7
