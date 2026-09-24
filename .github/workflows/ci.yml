@@ -34,6 +34,7 @@ jobs:
       - run: pnpm acceptance:validate
       - run: pnpm portability:validate
       - run: pnpm packaging:validate
+      - run: pnpm licenses:check
       - run: pnpm rust:test
       - name: Run desktop Clippy
         run: pnpm desktop:lint 2>&1 | tee desktop-clippy.log

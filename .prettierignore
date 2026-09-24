@@ -3,3 +3,5 @@ node_modules
 src-tauri/target
 pnpm-lock.yaml
 src/bindings
+licenses/dependencies.json
+THIRD_PARTY_NOTICES.md
