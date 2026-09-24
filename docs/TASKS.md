@@ -122,7 +122,8 @@
 - I5: implemented with exact indexed edit enumeration, per-file before/after review, explicit file selection, apply-time fingerprint revalidation, atomic per-file writes, and recoverable changed/failed results.
 - J1: implemented with the complete manifest-driven fixture matrix, isolated explicit-toolchain compilation, semantic artifact/log expectations, and harness mutation tests.
 - J2: implemented with mapped traversal, failed-write, concurrent-writer, symlink-substitution, watcher-overflow, recovery-corruption, and permission tests; project writes are serialized before fingerprint validation.
-- Next: J3 performance and stability budgets.
+- J3: implemented with executable startup, 10k-tree/index, 5 MiB scan, Finder, memory, atomic-I/O, and build/view-cycle budgets plus a scheduled log-producing workflow.
+- Next: J4 Overleaf and external-tool compatibility.
 
 The authoritative sequence is:
 

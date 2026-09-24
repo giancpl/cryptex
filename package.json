@@ -25,7 +25,8 @@
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm rust:fmt && pnpm rust:lint",
     "tauri": "tauri",
     "acceptance:validate": "node scripts/run-acceptance-fixtures.mjs",
-    "acceptance:compile": "node scripts/run-acceptance-fixtures.mjs --compile"
+    "acceptance:compile": "node scripts/run-acceptance-fixtures.mjs --compile",
+    "performance:test": "vitest run src/performance.test.tsx --reporter verbose && cargo test --release --manifest-path src-tauri/crates/cryptex-core/Cargo.toml --test performance_budgets performance_budgets_are_met -- --ignored --exact --nocapture --test-threads=1"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
